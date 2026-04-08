@@ -38,3 +38,6 @@ def ejecutar_simulador():
 
 if __name__ == "__main__":
     ejecutar_simulador()
+
+
+    print("hola")
