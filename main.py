@@ -6,11 +6,12 @@ load_dotenv()
 
 def mostrar_menu(saldo):
     print(f"\n" + "="*40)
-    print(f" 📈 SIMTRADE | SALDO DISPONIBLE: {saldo:.2f}$")
+    print(f"  SIMTRADE | SALDO DISPONIBLE: {saldo:.2f}$")
     print("="*40)
-    print(" 1. 🔍 Ver Mercado e Invertir")
-    print(" 2. 💼 Ver mi Cartera")
-    print(" 3. 🚪 Salir")
+    print(" 1.  Ver Mercado e Invertir")
+    print(" 2.  Ver mi Cartera")
+    print(" 3.  Consultar transacciones")
+    print(" 4.  Salir")
     return input("\nSeleccione una opción: ")
 
 def app_usuario():
@@ -43,11 +44,11 @@ def app_usuario():
                     exito, nuevo_saldo = db.realizar_compra(t_sel, cantidad, p_sel)
                     
                     if exito:
-                        print(f"\n✅ ¡Éxito! Has comprado {cantidad:.4f} unidades de {t_sel}.")
+                        print(f"\n ¡Éxito! Has comprado {cantidad:.4f} unidades de {t_sel}.")
                     else:
-                        print("\n❌ Error: Saldo insuficiente.")
+                        print("\n Error: Saldo insuficiente.")
             except Exception as e:
-                print(f"⚠️ Error en la operación: {e}")
+                print(f" Error en la operación: {e}")
 
         elif opcion == '2':
                 print("\n" + "-"*30)
@@ -89,14 +90,30 @@ def app_usuario():
                             if c_vender > 0:
                                 exito, s_final = db.realizar_venta(t_sel, c_vender, p_sel)
                                 if exito:
-                                    print(f"\n✅ Venta completada. Has recibido {(c_vender*p_sel):.2f}$.")
-                                    print(f"💰 Nuevo saldo total: {s_final:.2f}$")
+                                    print(f"\nVenta completada. Has recibido {(c_vender*p_sel):.2f}$.")
+                                    print(f" Nuevo saldo total: {s_final:.2f}$")
                                 else:
-                                    print("❌ Error en la venta.")
+                                    print(" Error en la venta.")
                     except ValueError:
-                        print("⚠️ Entrada no válida.")
+                        print(" Entrada no válida.")
         elif opcion == '3':
-                break
+            print("\n" + "="*50)
+            print(f"         MI HISTORIAL DE OPERACIONES")
+            print("="*50)
+            
+            # Usamos la nueva función filtrada
+            id_actual = "usuario_demo" # Esto cambiará por el ID real tras el Login
+            movimientos = db.obtener_historial(id_actual)
+            
+            if not movimientos:
+                print("No hay movimientos registrados en tu cuenta.")
+            else:
+                for doc in movimientos:
+                    t = doc.to_dict()
+                    fecha = t['fecha'].strftime("%d/%m/%Y %H:%M") if t['fecha'] else "Pendiente..."
+                    print(f"[{fecha}] {t['tipo']:7} | {t['ticker']:8} | Cant: {t['cantidad']:.4f} | Total: {t['total_dinero']:.2f}$")
+            
+            input("\nPresiona Enter para volver...")
 
 if __name__ == "__main__":
     app_usuario()
