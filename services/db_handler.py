@@ -1,4 +1,5 @@
 import firebase_admin
+import hashlib
 from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -26,13 +27,64 @@ class DbHandler:
         except Exception as e:
             print(f"❌ Error al actualizar precio: {e}")
 
+    def _encriptar_password(self, password):
+        """Genera un hash simple de la contraseña para no guardar texto plano."""
+        return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+    def crear_usuario(self, username, password):
+        """Crea un usuario nuevo en Firestore si no existe."""
+        user_id = username.strip().lower()
+        user_ref = self.db.collection('usuarios').document(user_id)
+        doc = user_ref.get()
+
+        if doc.exists:
+            return False, "Ese usuario ya existe."
+
+        datos_usuario = {
+            'username': username.strip(),
+            'password': self._encriptar_password(password),
+            'saldo': 1000.0,
+            'cartera': {},
+            'fecha_creacion': firestore.SERVER_TIMESTAMP
+        }
+        user_ref.set(datos_usuario)
+        return True, user_id
+
+    def autenticar_usuario(self, username, password):
+        """Valida usuario y contraseña contra Firestore."""
+        user_id = username.strip().lower()
+        user_ref = self.db.collection('usuarios').document(user_id)
+        doc = user_ref.get()
+
+        if not doc.exists:
+            return False, "El usuario no existe."
+
+        user_data = doc.to_dict()
+        password_guardada = user_data.get('password')
+        password_recibida = self._encriptar_password(password)
+
+        if password_guardada != password_recibida:
+            return False, "La contraseña no es correcta."
+
+        return True, user_id
+
     def obtener_usuario(self, user_id="usuario_demo"):
         user_ref = self.db.collection('usuarios').document(user_id)
         doc = user_ref.get()
         if doc.exists:
-            return doc.to_dict()
+            datos_usuario = doc.to_dict()
+            if 'saldo' not in datos_usuario:
+                datos_usuario['saldo'] = 1000.0
+            if 'cartera' not in datos_usuario:
+                datos_usuario['cartera'] = {}
+            return datos_usuario
         else:
-            datos_iniciales = {'saldo': 1000.0, 'cartera': {}}
+            datos_iniciales = {
+                'username': user_id,
+                'password': '',
+                'saldo': 1000.0,
+                'cartera': {}
+            }
             user_ref.set(datos_iniciales)
             return datos_iniciales
 

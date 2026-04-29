@@ -4,11 +4,12 @@ Archivo fuente: [services/db_handler.py](C:/Users/monsu/OneDrive/Documentos/GitH
 
 ## Proposito
 
-`DbHandler` centraliza la conexion con Firebase Firestore y las operaciones principales de persistencia del backend: precios de mercado, lectura de usuario y movimientos de cartera.
+`DbHandler` centraliza la conexion con Firebase Firestore y las operaciones principales de persistencia del backend: precios de mercado, registro e inicio de sesion de usuarios, lectura de usuario y movimientos de cartera.
 
 ## Dependencias
 
 - Libreria externa: `firebase-admin`
+- Libreria estandar: `hashlib`
 - Credencial necesaria: ruta valida al archivo `service_account.json`
 - Servicio externo: Firebase Firestore
 
@@ -40,6 +41,48 @@ Escribe en Firestore campos como:
 - `cambio`
 - `porcentaje`
 - `ultima_actualizacion`
+
+### `_encriptar_password(password)`
+
+Genera un hash SHA-256 de la contrasena para evitar guardarla en texto plano.
+
+### `crear_usuario(username, password)`
+
+Crea un documento nuevo en la coleccion `usuarios` si el nombre de usuario no existe todavia.
+
+### Parametros
+
+- `username`: nombre elegido por el usuario.
+- `password`: contrasena introducida por el usuario.
+
+### Retorno
+
+Devuelve una tupla:
+
+```python
+(exito, resultado)
+```
+
+Si la operacion va bien, `resultado` contiene el `user_id`.
+
+### `autenticar_usuario(username, password)`
+
+Comprueba si existe el usuario y si la contrasena coincide con el hash guardado en Firestore.
+
+### Parametros
+
+- `username`: nombre del usuario.
+- `password`: contrasena en texto introducida en el login.
+
+### Retorno
+
+Devuelve una tupla:
+
+```python
+(exito, resultado)
+```
+
+Si la operacion va bien, `resultado` contiene el `user_id`.
 
 ### `obtener_usuario(user_id="usuario_demo")`
 
@@ -94,11 +137,13 @@ Devuelve una tupla:
 ## Uso dentro del proyecto
 
 - [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): lectura de saldo, cartera, compras y ventas.
+- [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): registro, login, logout, lectura de saldo, cartera, compras y ventas.
 - [services/worker_precios.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/worker_precios.py): persistencia periodica de precios en `mercado`.
 
 ## Consideraciones
 
 - Si `certificado_path` no existe o no apunta a un JSON valido, la inicializacion de Firebase falla.
 - La clase accede directamente a colecciones concretas: `mercado` y `usuarios`.
-- Usa `usuario_demo` como usuario por defecto, por lo que no hay autenticacion real todavia.
+- La contrasena se almacena como hash SHA-256, no en texto plano.
+- Sigue siendo una autenticacion sencilla para aprendizaje; no sustituye a Firebase Authentication ni a un sistema de seguridad mas robusto.
 - Los errores se imprimen por consola y no se relanzan.

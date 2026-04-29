@@ -21,12 +21,13 @@ No se han encontrado mas declaraciones `class` en otros modulos Python del proye
 
 Los siguientes archivos forman parte del flujo del backend y tienen documentacion propia aunque no definan clases:
 
-- [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): punto de entrada de la aplicacion de usuario.
+- [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): punto de entrada de la aplicacion de usuario y del flujo de autenticacion.
 - [services/worker_precios.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/worker_precios.py): worker que sincroniza precios desde Finnhub hacia Firestore.
+- [main.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/main.md): documentacion funcional del script principal.
 
 ## Resumen de arquitectura
 
 - `ApiHandler` centraliza la lectura de precios desde Finnhub.
-- `DbHandler` centraliza la conexion y las operaciones contra Firestore.
+- `DbHandler` centraliza la conexion, la autenticacion simple y las operaciones contra Firestore.
 - `worker_precios.py` usa ambas clases para mantener actualizado el mercado.
-- `main.py` usa `DbHandler` para mostrar mercado, cartera y operaciones de compra o venta.
+- `main.py` usa `DbHandler` para registrar usuarios, iniciar sesion, cerrar sesion, mostrar mercado, cartera y operaciones.
