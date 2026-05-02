@@ -1,0 +1,108 @@
+# api_server
+
+Archivo fuente: [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/api_server.py)
+
+## Proposito
+
+`api_server.py` expone una API REST minima con FastAPI para que el frontend pueda registrar usuarios e iniciar sesion contra Firestore reutilizando la logica ya existente en `DbHandler`.
+
+## Responsabilidad dentro del sistema
+
+Este script actua como puente entre el frontend y la logica del backend. Su trabajo es recibir peticiones HTTP, validar datos basicos y devolver respuestas JSON sencillas.
+
+## Dependencias
+
+- Libreria estandar: `os`
+- Libreria externa: `python-dotenv`
+- Libreria externa: `fastapi`
+- Libreria externa: `uvicorn`
+- Libreria externa: `pydantic`
+- Clase interna:
+  - [DbHandler](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md)
+
+## Variables de entorno usadas
+
+- `FIREBASE_JSON_PATH`
+- `SIMTRADE_API_HOST`
+- `SIMTRADE_API_PORT`
+
+## Configuracion base
+
+- Host por defecto: `127.0.0.1`
+- Puerto por defecto: `8000`
+- Origenes permitidos por defecto:
+  - `http://127.0.0.1:4200`
+  - `http://localhost:4200`
+
+## Endpoints disponibles
+
+### `POST /auth/login`
+
+Recibe:
+
+```json
+{
+  "username": "usuario",
+  "password": "clave"
+}
+```
+
+Si las credenciales son correctas, devuelve un JSON con mensaje y datos publicos del usuario.
+
+### `POST /auth/register`
+
+Recibe:
+
+```json
+{
+  "username": "usuario",
+  "password": "clave"
+}
+```
+
+Si el usuario no existe, lo crea en Firestore y devuelve sus datos publicos.
+
+### `OPTIONS`
+
+FastAPI y el middleware CORS responden automaticamente a las peticiones preflight del navegador.
+
+## Funciones y piezas importantes
+
+### `public_user(user_id)`
+
+Construye una version segura del usuario para devolverla al frontend sin incluir la contrasena.
+
+### `AuthRequest`
+
+Modelo de entrada para validar `username` y `password` en login y registro.
+
+### `app`
+
+Instancia principal de FastAPI donde se registran las rutas y el middleware CORS.
+
+## Flujo de ejecucion
+
+1. Carga variables de entorno.
+2. Crea una instancia global de `DbHandler`.
+3. Configura FastAPI y el middleware CORS.
+4. Arranca Uvicorn en el host y puerto configurados.
+5. Espera peticiones del frontend.
+6. Segun la ruta:
+   - autentica al usuario
+   - registra al usuario
+   - o devuelve el estado basico de la API
+
+## Por que esta hecho asi
+
+- Se usa FastAPI porque mantiene el codigo claro pero da una estructura REST mas limpia, validacion automatica y mejor integracion con frontend.
+- Se reutiliza `DbHandler` para no duplicar la logica de usuarios entre consola y API.
+- Se devuelve un usuario publico sin password porque el frontend solo necesita identidad, saldo y cartera.
+- Se ha limitado CORS a `localhost:4200` porque el frontend actual trabaja en desarrollo desde Angular en ese puerto.
+- Se usan solo dos endpoints de autenticacion porque ahora mismo el objetivo es cubrir login y registro sin construir una API completa antes de tiempo.
+
+## Consideraciones
+
+- Este servidor no implementa tokens, sesiones ni refresco de autenticacion.
+- La seguridad esta pensada para un proyecto academico y de aprendizaje, no para produccion.
+- Si Firestore no esta disponible o faltan variables de entorno, las peticiones no funcionaran correctamente.
+- La documentacion interactiva de FastAPI queda disponible por defecto en `/docs`.

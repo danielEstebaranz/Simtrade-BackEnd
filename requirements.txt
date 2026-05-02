@@ -1,3 +1,5 @@
 python-dotenv
 finnhub-python
 firebase-admin
+fastapi
+uvicorn
