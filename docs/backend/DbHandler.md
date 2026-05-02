@@ -65,6 +65,20 @@ Devuelve una tupla:
 
 Si la operacion va bien, `resultado` contiene el `user_id`.
 
+### Estructura guardada
+
+Los usuarios nuevos se almacenan con este formato general:
+
+```python
+{
+    "username": "nombre_visible",
+    "password": "hash_sha256",
+    "saldo": 1000.0,
+    "cartera": {},
+    "fecha_creacion": firestore.SERVER_TIMESTAMP
+}
+```
+
 ### `autenticar_usuario(username, password)`
 
 Comprueba si existe el usuario y si la contrasena coincide con el hash guardado en Firestore.
@@ -86,7 +100,7 @@ Si la operacion va bien, `resultado` contiene el `user_id`.
 
 ### `obtener_usuario(user_id="usuario_demo")`
 
-Lee un usuario desde la coleccion `usuarios`. Si no existe, crea un usuario inicial con saldo `1000.0` y cartera vacia.
+Lee un usuario desde la coleccion `usuarios`. Si faltan campos como `saldo` o `cartera`, los completa en memoria. Si no existe, crea un usuario inicial con saldo `1000.0` y cartera vacia.
 
 ### Parametros
 
@@ -115,6 +129,8 @@ Devuelve una tupla:
 (exito, saldo_resultante)
 ```
 
+Tambien registra la operacion en la coleccion `transacciones`.
+
 ### `realizar_venta(ticker, cantidad_a_vender, precio_unidad, user_id="usuario_demo")`
 
 Valida que el usuario tenga suficientes unidades, calcula el ingreso y actualiza saldo y cartera.
@@ -134,6 +150,12 @@ Devuelve una tupla:
 (exito, saldo_resultante)
 ```
 
+Tambien registra la operacion en la coleccion `transacciones`.
+
+### `obtener_historial(user_id)`
+
+Consulta las ultimas transacciones del usuario, ordenadas por fecha descendente.
+
 ## Uso dentro del proyecto
 
 - [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): lectura de saldo, cartera, compras y ventas.
@@ -144,6 +166,15 @@ Devuelve una tupla:
 
 - Si `certificado_path` no existe o no apunta a un JSON valido, la inicializacion de Firebase falla.
 - La clase accede directamente a colecciones concretas: `mercado` y `usuarios`.
+- Tambien usa la coleccion `transacciones` para el historial de movimientos.
 - La contrasena se almacena como hash SHA-256, no en texto plano.
 - Sigue siendo una autenticacion sencilla para aprendizaje; no sustituye a Firebase Authentication ni a un sistema de seguridad mas robusto.
 - Los errores se imprimen por consola y no se relanzan.
+
+## Por que esta hecho asi
+
+- Se centraliza Firestore en una sola clase para que el resto del proyecto no tenga que repetir consultas ni rutas de colecciones.
+- Se usa SHA-256 porque es una mejora simple frente a guardar contrasenas en texto plano y mantiene el codigo facil de entender.
+- No se ha usado Firebase Authentication porque el objetivo actual es tener un flujo de usuarios sencillo y totalmente visible en el codigo del proyecto.
+- Se usa el nombre de usuario en minusculas como `user_id` para evitar duplicados por mayusculas y simplificar las busquedas.
+- Se registra cada compra y venta en `transacciones` para poder mostrar historial sin recalcularlo desde la cartera.

@@ -10,6 +10,7 @@ Archivo fuente: [services/Api_Handler.py](C:/Users/monsu/OneDrive/Documentos/Git
 
 - Libreria externa: `finnhub`
 - Credencial necesaria: `FINNHUB_API_KEY`
+- Servicio externo: API de Finnhub
 
 ## Constructor
 
@@ -59,8 +60,25 @@ Si la API no devuelve datos utiles o ocurre un error, retorna `None`.
 
 - [services/worker_precios.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/worker_precios.py): obtiene precios periodicamente para almacenarlos en Firestore.
 
+## Activos usados actualmente
+
+El backend consulta actualmente estos tickers:
+
+- `AAPL`
+- `TSLA`
+- `AMZN`
+- `MSFT`
+- `BINANCE:BTCUSDT`
+
 ## Consideraciones
 
 - Si `api_key` es `None` o invalida, las llamadas a Finnhub fallaran.
 - El metodo considera que un precio actual igual a `0` implica dato no valido.
 - Los errores se informan por consola, pero no se relanzan.
+- Esta clase solo lee datos del mercado; no interactua con usuarios ni con Firestore.
+
+## Por que esta hecho asi
+
+- Se usa una clase separada para Finnhub en lugar de llamadas directas desde otros archivos para evitar repetir codigo de acceso a mercado.
+- Se devuelve un diccionario simple con nombres propios del proyecto porque es mas facil de entender que trabajar con las claves cortas originales de Finnhub.
+- Se captura la excepcion y se devuelve `None` en vez de romper la ejecucion completa porque el worker puede seguir funcionando en la siguiente iteracion.

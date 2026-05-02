@@ -47,6 +47,14 @@ Mantiene al usuario en el menu de acceso hasta que inicia sesion, se registra co
 
 Muestra el menu principal de la aplicacion autenticada con el saldo actual del usuario.
 
+Las opciones actuales son:
+
+- ver mercado e invertir
+- ver mi cartera
+- consultar transacciones
+- cerrar sesion
+- salir
+
 ### `app_usuario()`
 
 Coordina todo el flujo principal del programa.
@@ -77,3 +85,12 @@ Coordina todo el flujo principal del programa.
 - La autenticacion es sencilla y esta pensada para ser facil de entender.
 - La contrasena se transforma con SHA-256 antes de guardarse.
 - El script depende de que el worker haya actualizado precios en la coleccion `mercado`.
+- El mercado mostrado al usuario se limita a los tickers definidos en el propio script.
+
+## Por que esta hecho asi
+
+- Se ha hecho una aplicacion de consola porque permite probar todo el flujo del backend sin depender del frontend.
+- El login y el registro se resuelven en menus separados para que el flujo sea mas claro para quien este aprendiendo el proyecto.
+- Se usa `DbHandler` para todas las operaciones de usuario en vez de acceder a Firestore directamente desde el menu.
+- Se consulta el mercado desde Firestore y no desde Finnhub en tiempo real para desacoplar la experiencia del usuario del proceso de sincronizacion.
+- Se ha anadido `Cerrar sesion` para poder cambiar de usuario sin reiniciar el programa completo.

@@ -1,0 +1,96 @@
+import os
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import uvicorn
+
+from services.db_handler import DbHandler
+
+load_dotenv()
+
+HOST = os.getenv('SIMTRADE_API_HOST', '127.0.0.1')
+PORT = int(os.getenv('SIMTRADE_API_PORT', '8000'))
+ALLOWED_ORIGINS = [
+    'http://127.0.0.1:4200',
+    'http://localhost:4200',
+]
+
+app = FastAPI(title='Simtrade API',version='1.0.0',)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=['POST', 'GET'],
+    allow_headers=['*'],
+)
+
+db = DbHandler(os.getenv('FIREBASE_JSON_PATH'))
+
+
+class AuthRequest(BaseModel):
+    username: str
+    password: str
+
+
+def public_user(user_id):
+    user_data = db.obtener_usuario(user_id)
+    return {
+        'id': user_id,
+        'username': user_data.get('username', user_id),
+        'saldo': user_data.get('saldo', 1000.0),
+        'cartera': user_data.get('cartera', {}),
+    }
+
+
+@app.get('/')
+def healthcheck():
+    return {'message': 'Simtrade API activa.'}
+
+
+@app.post('/auth/login')
+def login(payload: AuthRequest):
+    username = payload.username.strip()
+    password = payload.password.strip()
+
+    if not username or not password:
+        raise HTTPException(
+            status_code=400,
+            detail='Usuario y contrasena son obligatorios.',
+        )
+
+    ok, result = db.autenticar_usuario(username, password)
+    if not ok:
+        raise HTTPException(status_code=401, detail=result)
+
+    return {
+        'message': 'Inicio de sesion correcto.',
+        'user': public_user(result),
+    }
+
+
+@app.post('/auth/register', status_code=201)
+def register(payload: AuthRequest):
+    username = payload.username.strip()
+    password = payload.password.strip()
+
+    if not username or not password:
+        raise HTTPException(
+            status_code=400,
+            detail='Usuario y contrasena son obligatorios.',
+        )
+
+    ok, result = db.crear_usuario(username, password)
+    if not ok:
+        raise HTTPException(status_code=409, detail=result)
+
+    return {
+        'message': 'Usuario creado correctamente.',
+        'user': public_user(result),
+    }
+
+
+if __name__ == '__main__':
+    uvicorn.run('api_server:app', host=HOST, port=PORT, reload=False)

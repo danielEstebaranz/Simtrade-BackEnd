@@ -65,3 +65,11 @@ if __name__ == "__main__":
 - Si falta alguna variable de entorno o las credenciales son invalidas, el worker no podra inicializar correctamente sus servicios.
 - El worker no guarda historico de precios; solo actualiza el estado actual en Firestore.
 - El intervalo esta fijado en 60 segundos dentro del propio script.
+- Este script no participa en el login ni en la gestion de usuarios; solo mantiene la coleccion `mercado`.
+
+## Por que esta hecho asi
+
+- Se ha separado del resto del backend porque actualizar precios continuamente y atender usuarios son responsabilidades distintas.
+- Se usa un bucle simple con `time.sleep(60)` porque es suficiente para este proyecto y es mucho mas facil de entender que un sistema de colas o tareas programadas.
+- Se escriben los precios en Firestore para que tanto la consola como el frontend lean una fuente comun ya procesada.
+- No se registra historico de precios porque el objetivo actual es mostrar el precio vigente para la simulacion, no construir una analitica temporal avanzada.

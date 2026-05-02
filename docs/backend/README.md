@@ -1,33 +1,59 @@
-# Documentacion de clases Python del BackEnd
+# Documentacion del BackEnd
 
-Esta carpeta contiene la documentacion funcional de todas las clases Python que forman el backend actual de Simtrade-BackEnd.
+Esta carpeta recoge la documentacion funcional del backend actual de Simtrade-BackEnd. Incluye las clases Python del proyecto y los scripts principales que coordinan la autenticacion, el mercado y la persistencia en Firestore.
 
-## Clases documentadas
+## Archivos documentados
 
-- [ApiHandler](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md)
-- [DbHandler](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md)
-- [worker_precios](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/worker_precios.md)
+- [ApiHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md): acceso a Finnhub y transformacion de cotizaciones.
+- [api_server.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/api_server.md): API HTTP sencilla para login y registro desde el frontend.
+- [DbHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md): conexion con Firestore, autenticacion simple y operaciones de usuario.
+- [main.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/main.md): flujo principal de consola para registro, login, logout y operativa del usuario.
+- [worker_precios.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/worker_precios.md): sincronizacion periodica de precios desde Finnhub hacia Firestore.
 
 ## Cobertura actual
 
-Tras revisar los archivos Python del repositorio, actualmente solo existen estas dos clases:
+Tras revisar el codigo Python del repositorio, las clases propias actualmente son:
 
 - `ApiHandler`
 - `DbHandler`
 
-No se han encontrado mas declaraciones `class` en otros modulos Python del proyecto.
+Ademas, el backend tiene dos scripts principales sin clases propias:
 
-## Scripts documentados
+- `api_server.py`
+- `main.py`
+- `services/worker_precios.py`
 
-Los siguientes archivos forman parte del flujo del backend y tienen documentacion propia aunque no definan clases:
+## Dependencias del backend
 
-- [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): punto de entrada de la aplicacion de usuario y del flujo de autenticacion.
-- [services/worker_precios.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/worker_precios.py): worker que sincroniza precios desde Finnhub hacia Firestore.
-- [main.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/main.md): documentacion funcional del script principal.
+Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/requirements.txt:1), el backend usa:
+
+- `python-dotenv`
+- `finnhub-python`
+- `firebase-admin`
+
+## Variables de entorno necesarias
+
+- `FINNHUB_API_KEY`
+- `FIREBASE_JSON_PATH`
+
+## Colecciones de Firestore usadas
+
+- `usuarios`: usuarios registrados, saldo, cartera y password en formato hash.
+- `mercado`: precio actual y variacion de cada activo sincronizado.
+- `transacciones`: historial de compras y ventas por usuario.
 
 ## Resumen de arquitectura
 
-- `ApiHandler` centraliza la lectura de precios desde Finnhub.
-- `DbHandler` centraliza la conexion, la autenticacion simple y las operaciones contra Firestore.
-- `worker_precios.py` usa ambas clases para mantener actualizado el mercado.
-- `main.py` usa `DbHandler` para registrar usuarios, iniciar sesion, cerrar sesion, mostrar mercado, cartera y operaciones.
+- `ApiHandler` consulta Finnhub y devuelve datos en un formato sencillo para el proyecto.
+- `DbHandler` encapsula Firestore y centraliza registro, login, cartera, saldo e historial.
+- `api_server.py` expone endpoints HTTP muy simples para que el frontend pueda registrar e iniciar sesion sin duplicar logica.
+- `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos.
+- `main.py` gestiona el acceso del usuario y la operativa contra Firestore usando los precios ya sincronizados.
+
+## Decisiones de diseno
+
+- Se ha separado el acceso a Finnhub en `ApiHandler` para no mezclar llamadas externas con logica de base de datos o interfaz.
+- Se ha concentrado Firestore en `DbHandler` para tener un unico punto de acceso a usuarios, mercado e historial.
+- Se ha mantenido `main.py` como aplicacion de consola porque es una forma facil de probar el flujo sin depender del frontend.
+- Se ha creado `api_server.py` con FastAPI para tener una API REST sencilla, legible y mas comoda de consumir desde el frontend.
+- Se ha dejado `worker_precios.py` como proceso separado porque actualizar precios continuamente no deberia bloquear ni el login ni la aplicacion de usuario.
