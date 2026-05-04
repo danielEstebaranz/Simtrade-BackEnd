@@ -35,6 +35,10 @@ class AuthRequest(BaseModel):
     password: str
 
 
+def normalize_user_id(username):
+    return username.strip().lower()
+
+
 def public_user(user_id):
     user_data = db.obtener_usuario(user_id)
     return {
@@ -48,6 +52,18 @@ def public_user(user_id):
 @app.get('/')
 def healthcheck():
     return {'message': 'Simtrade API activa.'}
+
+
+@app.get('/users/{username}/portfolio')
+def get_user_portfolio(username: str):
+    user_id = normalize_user_id(username)
+    posiciones = db.obtener_cartera(user_id)
+
+    return {
+        'user': public_user(user_id),
+        'portfolio': posiciones,
+        'total_activos': len(posiciones),
+    }
 
 
 @app.post('/auth/login')

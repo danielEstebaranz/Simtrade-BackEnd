@@ -13,7 +13,7 @@ class DbHandler:
             print("Conexión establecida con Firebase Firestore.")
         except Exception as e:
             print(f"Error crítico al conectar con Firebase: {e}")
-
+    
     def actualizar_precio(self, datos):
         """Actualiza los precios en la colección 'mercado'"""
         try:
@@ -87,6 +87,19 @@ class DbHandler:
             }
             user_ref.set(datos_iniciales)
             return datos_iniciales
+
+    def obtener_cartera(self, user_id):
+        """Devuelve la cartera del usuario como lista simple de posiciones."""
+        user_data = self.obtener_usuario(user_id)
+        cartera = user_data.get('cartera', {})
+
+        return [
+            {
+                'ticker': ticker,
+                'cantidad': cantidad,
+            }
+            for ticker, cantidad in cartera.items()
+        ]
 
     def _registrar_transaccion(self, user_id, tipo, ticker, cantidad, precio, total):
         """Guarda un registro de la operación en la colección 'transacciones'."""

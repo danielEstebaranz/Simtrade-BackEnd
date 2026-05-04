@@ -62,6 +62,32 @@ Recibe:
 
 Si el usuario no existe, lo crea en Firestore y devuelve sus datos publicos.
 
+### `GET /users/{username}/portfolio`
+
+Devuelve la cartera del usuario en un formato simple para poder recorrerla e imprimirla en el frontend.
+
+Respuesta orientativa:
+
+```json
+{
+  "user": {
+    "id": "daniel",
+    "username": "Daniel",
+    "saldo": 1000.0,
+    "cartera": {
+      "AAPL": 2.5
+    }
+  },
+  "portfolio": [
+    {
+      "ticker": "AAPL",
+      "cantidad": 2.5
+    }
+  ],
+  "total_activos": 1
+}
+```
+
 ### `OPTIONS`
 
 FastAPI y el middleware CORS responden automaticamente a las peticiones preflight del navegador.
@@ -88,6 +114,7 @@ Instancia principal de FastAPI donde se registran las rutas y el middleware CORS
 4. Arranca Uvicorn en el host y puerto configurados.
 5. Espera peticiones del frontend.
 6. Segun la ruta:
+   - devuelve la cartera de un usuario
    - autentica al usuario
    - registra al usuario
    - o devuelve el estado basico de la API
@@ -97,8 +124,10 @@ Instancia principal de FastAPI donde se registran las rutas y el middleware CORS
 - Se usa FastAPI porque mantiene el codigo claro pero da una estructura REST mas limpia, validacion automatica y mejor integracion con frontend.
 - Se reutiliza `DbHandler` para no duplicar la logica de usuarios entre consola y API.
 - Se devuelve un usuario publico sin password porque el frontend solo necesita identidad, saldo y cartera.
+- Se devuelve tambien `portfolio` como lista de posiciones porque en frontend es mas comodo recorrer una lista para imprimir que un diccionario crudo.
+- La transformacion de cartera vive en `DbHandler` y no en la ruta para mantener `api_server.py` centrado en HTTP y no en logica de datos.
 - Se ha limitado CORS a `localhost:4200` porque el frontend actual trabaja en desarrollo desde Angular en ese puerto.
-- Se usan solo dos endpoints de autenticacion porque ahora mismo el objetivo es cubrir login y registro sin construir una API completa antes de tiempo.
+- Se usan endpoints pequenos y directos porque ahora mismo el objetivo es cubrir login, registro y consulta de cartera sin construir una API completa antes de tiempo.
 
 ## Consideraciones
 
