@@ -4,7 +4,7 @@ Archivo fuente: [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtra
 
 ## Proposito
 
-`api_server.py` expone una API REST minima con FastAPI para que el frontend pueda registrar usuarios e iniciar sesion contra Firestore reutilizando la logica ya existente en `DbHandler`.
+`api_server.py` expone una API REST minima con FastAPI para que el frontend pueda registrar usuarios, iniciar sesion, consultar cartera y obtener tendencias reales de mercado.
 
 ## Responsabilidad dentro del sistema
 
@@ -19,6 +19,7 @@ Este script actua como puente entre el frontend y la logica del backend. Su trab
 - Libreria externa: `pydantic`
 - Clase interna:
   - [DbHandler](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md)
+  - [ApiHandler](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md)
 
 ## Variables de entorno usadas
 
@@ -62,6 +63,68 @@ Recibe:
 
 Si el usuario no existe, lo crea en Firestore y devuelve sus datos publicos.
 
+### `GET /users/{username}/portfolio`
+
+Devuelve la cartera del usuario en un formato simple para poder recorrerla e imprimirla en el frontend.
+
+Respuesta orientativa:
+
+```json
+{
+  "user": {
+    "id": "daniel",
+    "username": "Daniel",
+    "saldo": 1000.0,
+    "cartera": {
+      "AAPL": 2.5
+    }
+  },
+  "portfolio": [
+    {
+      "ticker": "AAPL",
+      "cantidad": 2.5
+    }
+  ],
+  "total_activos": 1
+}
+```
+
+### `GET /market/{ticker}/trend`
+
+Devuelve puntos historicos reales de un activo para pintar una grafica en el frontend.
+
+Ejemplos:
+
+```text
+GET /market/AAPL/trend?range=1d
+GET /market/AAPL/trend?range=1w
+GET /market/AAPL/trend?range=1y
+```
+
+Rangos permitidos:
+
+- `1d`: un dia
+- `1w`: una semana de mercado
+- `1y`: un ano
+
+Respuesta orientativa:
+
+```json
+{
+  "ticker": "AAPL",
+  "range": "1d",
+  "points": [
+    {
+      "timestamp": 1778506200,
+      "price": 291.23
+    }
+  ],
+  "source": "yfinance"
+}
+```
+
+Si el rango no es valido devuelve `400`. Si no hay datos reales para ese activo devuelve `404`.
+
 ### `OPTIONS`
 
 FastAPI y el middleware CORS responden automaticamente a las peticiones preflight del navegador.
@@ -88,6 +151,8 @@ Instancia principal de FastAPI donde se registran las rutas y el middleware CORS
 4. Arranca Uvicorn en el host y puerto configurados.
 5. Espera peticiones del frontend.
 6. Segun la ruta:
+   - devuelve la cartera de un usuario
+   - devuelve la tendencia de mercado de un ticker
    - autentica al usuario
    - registra al usuario
    - o devuelve el estado basico de la API
@@ -97,12 +162,16 @@ Instancia principal de FastAPI donde se registran las rutas y el middleware CORS
 - Se usa FastAPI porque mantiene el codigo claro pero da una estructura REST mas limpia, validacion automatica y mejor integracion con frontend.
 - Se reutiliza `DbHandler` para no duplicar la logica de usuarios entre consola y API.
 - Se devuelve un usuario publico sin password porque el frontend solo necesita identidad, saldo y cartera.
+- Se devuelve tambien `portfolio` como lista de posiciones porque en frontend es mas comodo recorrer una lista para imprimir que un diccionario crudo.
+- La transformacion de cartera vive en `DbHandler` y no en la ruta para mantener `api_server.py` centrado en HTTP y no en logica de datos.
+- La tendencia de mercado vive en `ApiHandler` para mantener separada la logica de proveedores externos.
 - Se ha limitado CORS a `localhost:4200` porque el frontend actual trabaja en desarrollo desde Angular en ese puerto.
-- Se usan solo dos endpoints de autenticacion porque ahora mismo el objetivo es cubrir login y registro sin construir una API completa antes de tiempo.
+- Se usan endpoints pequenos y directos porque ahora mismo el objetivo es cubrir login, registro y consulta de cartera sin construir una API completa antes de tiempo.
 
 ## Consideraciones
 
 - Este servidor no implementa tokens, sesiones ni refresco de autenticacion.
 - La seguridad esta pensada para un proyecto academico y de aprendizaje, no para produccion.
 - Si Firestore no esta disponible o faltan variables de entorno, las peticiones no funcionaran correctamente.
+- Si el proveedor de mercado no reconoce el ticker, la ruta de tendencia devolvera `404`.
 - La documentacion interactiva de FastAPI queda disponible por defecto en `/docs`.

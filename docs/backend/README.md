@@ -4,9 +4,12 @@ Esta carpeta recoge la documentacion funcional del backend actual de Simtrade-Ba
 
 ## Archivos documentados
 
-- [ApiHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md): acceso a Finnhub y transformacion de cotizaciones.
+- [ApiHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md): acceso a Finnhub para precio actual y yfinance para historicos.
 - [api_server.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/api_server.md): API HTTP sencilla para login y registro desde el frontend.
 - [DbHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md): conexion con Firestore, autenticacion simple y operaciones de usuario.
+- [graficas_tendencias.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/graficas_tendencias.md): endpoint de tendencias reales, rangos, yfinance y relacion con Chart.js.
+- [errores_puntos_debiles_faq.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/errores_puntos_debiles_faq.md): errores corregidos, puntos debiles y preguntas tipicas.
+- [glosario_tecnico.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/glosario_tecnico.md): explicacion de terminos tecnicos del backend y por que se usan.
 - [main.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/main.md): flujo principal de consola para registro, login, logout y operativa del usuario.
 - [worker_precios.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/worker_precios.md): sincronizacion periodica de precios desde Finnhub hacia Firestore.
 
@@ -30,6 +33,9 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 - `python-dotenv`
 - `finnhub-python`
 - `firebase-admin`
+- `fastapi`
+- `uvicorn`
+- `yfinance`
 
 ## Variables de entorno necesarias
 
@@ -45,8 +51,9 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 ## Resumen de arquitectura
 
 - `ApiHandler` consulta Finnhub y devuelve datos en un formato sencillo para el proyecto.
+- `ApiHandler` tambien consulta yfinance para devolver historicos reales de tendencia.
 - `DbHandler` encapsula Firestore y centraliza registro, login, cartera, saldo e historial.
-- `api_server.py` expone endpoints HTTP muy simples para que el frontend pueda registrar e iniciar sesion sin duplicar logica.
+- `api_server.py` expone endpoints HTTP para login, registro, cartera y tendencia de mercado.
 - `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos.
 - `main.py` gestiona el acceso del usuario y la operativa contra Firestore usando los precios ya sincronizados.
 
@@ -56,4 +63,5 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 - Se ha concentrado Firestore en `DbHandler` para tener un unico punto de acceso a usuarios, mercado e historial.
 - Se ha mantenido `main.py` como aplicacion de consola porque es una forma facil de probar el flujo sin depender del frontend.
 - Se ha creado `api_server.py` con FastAPI para tener una API REST sencilla, legible y mas comoda de consumir desde el frontend.
+- Se ha usado `yfinance` para historicos porque simplifica mucho obtener datos reales para graficas.
 - Se ha dejado `worker_precios.py` como proceso separado porque actualizar precios continuamente no deberia bloquear ni el login ni la aplicacion de usuario.

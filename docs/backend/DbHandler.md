@@ -156,6 +156,10 @@ Tambien registra la operacion en la coleccion `transacciones`.
 
 Consulta las ultimas transacciones del usuario, ordenadas por fecha descendente.
 
+### `obtener_cartera(user_id)`
+
+Devuelve la cartera del usuario como una lista simple de posiciones para poder reutilizarla desde la API o desde otros puntos del backend.
+
 ## Uso dentro del proyecto
 
 - [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): lectura de saldo, cartera, compras y ventas.
@@ -178,3 +182,4 @@ Consulta las ultimas transacciones del usuario, ordenadas por fecha descendente.
 - No se ha usado Firebase Authentication porque el objetivo actual es tener un flujo de usuarios sencillo y totalmente visible en el codigo del proyecto.
 - Se usa el nombre de usuario en minusculas como `user_id` para evitar duplicados por mayusculas y simplificar las busquedas.
 - Se registra cada compra y venta en `transacciones` para poder mostrar historial sin recalcularlo desde la cartera.
+- Se ofrece `obtener_cartera(user_id)` como metodo separado para que la capa HTTP no tenga que transformar manualmente los datos de Firestore.

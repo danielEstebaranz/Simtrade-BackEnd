@@ -1,12 +1,13 @@
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 
 from services.db_handler import DbHandler
+from services.Api_Handler import ApiHandler
 
 load_dotenv()
 
@@ -28,11 +29,16 @@ app.add_middleware(
 )
 
 db = DbHandler(os.getenv('FIREBASE_JSON_PATH'))
+market_api = ApiHandler(os.getenv('FINNHUB_API_KEY'))
 
 
 class AuthRequest(BaseModel):
     username: str
     password: str
+
+
+def normalize_user_id(username):
+    return username.strip().lower()
 
 
 def public_user(user_id):
@@ -48,6 +54,37 @@ def public_user(user_id):
 @app.get('/')
 def healthcheck():
     return {'message': 'Simtrade API activa.'}
+
+
+@app.get('/users/{username}/portfolio')
+def get_user_portfolio(username: str):
+    user_id = normalize_user_id(username)
+    posiciones = db.obtener_cartera(user_id)
+
+    return {
+        'user': public_user(user_id),
+        'portfolio': posiciones,
+        'total_activos': len(posiciones),
+    }
+
+
+@app.get('/market/{ticker}/trend')
+def get_market_trend(ticker: str, rango: str = Query('1d', alias='range')):
+    if rango not in {'1d', '1w', '1y'}:
+        raise HTTPException(
+            status_code=400,
+            detail='El rango debe ser 1d, 1w o 1y.',
+        )
+
+    tendencia = market_api.obtener_tendencia(ticker, rango)
+
+    if tendencia is None or not tendencia.get('points'):
+        raise HTTPException(
+            status_code=404,
+            detail='No hay datos de tendencia para ese activo.',
+        )
+
+    return tendencia
 
 
 @app.post('/auth/login')
