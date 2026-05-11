@@ -3,3 +3,4 @@ finnhub-python
 firebase-admin
 fastapi
 uvicorn
+yfinance

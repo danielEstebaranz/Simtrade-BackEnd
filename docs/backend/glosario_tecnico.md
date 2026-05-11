@@ -253,3 +253,39 @@ Se usa porque es la forma habitual y sencilla de arrancar una app FastAPI.
 ### Por que no otro metodo
 
 No se usa un servidor mas complejo porque para desarrollo y para el alcance actual del proyecto no hace falta.
+
+## yfinance
+
+`yfinance` es una libreria Python que permite consultar datos de mercado historicos desde Yahoo Finance.
+
+### Por que se usa
+
+Se usa para obtener puntos reales de precio y pintar graficas de tendencia en la cartera.
+
+### Por que no otro metodo
+
+No se implemento una integracion manual de velas porque seria mas larga y menos clara para el estado actual del proyecto.
+
+## Historico de mercado
+
+El historico de mercado es una lista de precios en distintos momentos.
+
+### Por que se usa
+
+Se usa para mostrar si una accion ha subido o bajado en un rango de tiempo.
+
+### Por que no otro metodo
+
+No basta con el precio actual, porque una grafica necesita varios puntos para dibujar una tendencia.
+
+## Cache
+
+Una cache guarda temporalmente una respuesta para no pedirla de nuevo cada vez.
+
+### Por que se menciona
+
+Ahora mismo el backend no cachea historicos. Cada peticion de tendencia pide datos al proveedor.
+
+### Por que no se ha hecho todavia
+
+Se priorizo una implementacion sencilla y clara. La cache puede anadirse despues si hay muchas peticiones o problemas de rendimiento.
