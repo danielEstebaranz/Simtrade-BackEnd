@@ -202,3 +202,18 @@ class DbHandler:
         except Exception as e:
             print(f"Error al consultar historial: {e}")
             return []
+
+    def obtener_transacciones_usuario(self, user_id):
+        """Devuelve todas las transacciones del usuario ordenadas de mas antigua a mas reciente."""
+        try:
+            docs = self.db.collection('transacciones')\
+                        .where(filter=FieldFilter('usuario', '==', user_id)).get()
+            transacciones = [doc.to_dict() for doc in docs]
+
+            return sorted(
+                transacciones,
+                key=lambda transaccion: transaccion.get('fecha') or '',
+            )
+        except Exception as e:
+            print(f"Error al consultar transacciones del usuario: {e}")
+            return []
