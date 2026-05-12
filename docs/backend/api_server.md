@@ -118,5 +118,6 @@ Valida un `ID token` recibido en la cabecera `Authorization`.
 ## Consideraciones
 
 - El campo visual del frontend ya representa un email, aunque internamente se siga llamando `username` en algunos sitios.
-- El backend necesita `FIREBASE_WEB_API_KEY` para el login contra Firebase Auth. Si no existe en entorno, usa el valor configurado para este proyecto.
+- El backend necesita `FIREBASE_WEB_API_KEY` para el login contra Firebase Auth.
+- Esa clave no debe quedar hardcodeada en el repositorio. Debe vivir en `.env` o en el sistema de secretos del entorno.
 - La documentacion interactiva de FastAPI sigue disponible en `/docs`.

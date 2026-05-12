@@ -107,3 +107,21 @@ Se migro tambien la consola:
 - login contra Firebase Authentication con `signInWithPassword`
 - registro creando primero el usuario en Authentication
 - lectura posterior del perfil en Firestore usando el `uid`
+
+## 9. GitHub detecto una Google API Key en el repositorio
+
+### Causa
+
+Durante la migracion se dejo `FIREBASE_WEB_API_KEY` como valor por defecto hardcodeado en:
+
+- `main.py`
+- `api_server.py`
+
+Aunque esa clave se usaba para simplificar la configuracion local, GitHub la detecto correctamente como secreto expuesto.
+
+### Solucion
+
+Se elimino el valor hardcodeado del codigo y se dejo el backend preparado para leer la clave solo desde entorno:
+
+- `FIREBASE_WEB_API_KEY` en `.env`
+- o en el sistema de secretos del despliegue
