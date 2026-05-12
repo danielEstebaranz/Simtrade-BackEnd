@@ -186,6 +186,55 @@ Ganancia diaria: -0,06 $
 
 Puede pasar si la posicion sigue por encima de tu compra, pero hoy ha bajado.
 
+### Compra desde mercado devolvia `Not Found`
+
+#### Causa
+
+El frontend llamaba a:
+
+```text
+POST /users/me/portfolio/buy
+```
+
+pero el backend que estaba arrancado en el puerto `8000` era una version antigua que todavia no tenia ese endpoint.
+
+#### Solucion
+
+Se reinicio el backend para cargar `api_server.py` actualizado.
+
+### La compra pedia acciones y no dinero
+
+#### Causa
+
+La primera version del popup enviaba `quantity`, es decir, numero de unidades.
+
+#### Solucion
+
+Se cambio el contrato a:
+
+```json
+{
+  "ticker": "AAPL",
+  "amount": 10
+}
+```
+
+Ahora el usuario introduce dinero a invertir y el backend calcula:
+
+```text
+quantity = amount / price
+```
+
+### El campo del popup sobresalia
+
+#### Causa
+
+El input tenia `width: 100%`, pero su padding y borde se sumaban al ancho total.
+
+#### Solucion
+
+Se anadio `box-sizing: border-box` al popup y sus hijos.
+
 ## Librerias usadas y motivo
 
 ### FastAPI
@@ -332,6 +381,16 @@ curl.exe -s -i "http://127.0.0.1:8000/users/me/portfolio/gains" -H "Authorizatio
 ```
 
 Sin token debe devolver `401`.
+
+### Como compruebo la compra
+
+Hace falta un `idToken` obtenido en login:
+
+```powershell
+curl.exe -s -i "http://127.0.0.1:8000/users/me/portfolio/buy" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"ticker\":\"AAPL\",\"amount\":10}"
+```
+
+Si el usuario tiene saldo suficiente, debe devolver usuario actualizado y datos de la operacion.
 
 ### Donde veo documentacion interactiva
 

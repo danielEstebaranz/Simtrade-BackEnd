@@ -52,6 +52,11 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+class BuyRequest(BaseModel):
+    amount: float
+    ticker: str
+
+
 def resolve_email(email, username):
     email_value = (email or '').strip().lower()
     username_value = username.strip()
@@ -213,6 +218,42 @@ def get_my_portfolio_gains(authorization: str | None = Header(default=None)):
         resumen['totalGain'] = resumen['totalValue'] - coste_estimado if coste_estimado > 0 else 0.0
 
     return resumen
+
+
+@app.post('/users/me/portfolio/buy')
+def buy_asset(payload: BuyRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    ticker = payload.ticker.strip().upper()
+    amount = payload.amount
+
+    if not ticker:
+        raise HTTPException(status_code=400, detail='El ticker es obligatorio.')
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail='El importe debe ser mayor que 0.')
+
+    tendencia = market_api.obtener_tendencia(ticker, '1d')
+    if tendencia is None or not tendencia.get('points'):
+        raise HTTPException(status_code=404, detail='No hay precio real disponible para ese activo.')
+
+    price = tendencia['points'][-1]['price']
+    quantity = amount / price
+    success, balance = db.realizar_compra(ticker, quantity, price, user_id)
+
+    if not success:
+        raise HTTPException(status_code=400, detail='Saldo insuficiente para realizar la compra.')
+
+    return {
+        'message': 'Compra realizada correctamente.',
+        'operation': {
+            'ticker': ticker,
+            'quantity': quantity,
+            'price': price,
+            'total': amount,
+            'balance': balance,
+        },
+        'user': public_user(user_id),
+    }
 
 
 @app.get('/market/{ticker}/trend')

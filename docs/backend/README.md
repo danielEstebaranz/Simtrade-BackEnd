@@ -50,7 +50,7 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 
 - `ApiHandler` consulta Finnhub y devuelve datos en un formato sencillo para el proyecto.
 - `DbHandler` encapsula Firestore y centraliza perfiles, cartera, saldo e historial.
-- `api_server.py` expone endpoints HTTP para autenticacion, cartera, tendencias y ganancias.
+- `api_server.py` expone endpoints HTTP para autenticacion, cartera, compra desde mercado, tendencias y ganancias.
 - `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos.
 - `main.py` mantiene una app de consola para pruebas y operativa local usando tambien Firebase Authentication.
 

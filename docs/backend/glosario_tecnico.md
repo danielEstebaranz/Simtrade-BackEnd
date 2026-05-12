@@ -329,3 +329,19 @@ Sirve para saber si la inversion completa va en positivo o negativo.
 ### Por que puede diferir de la diaria
 
 Una posicion puede ir ganando en total pero haber bajado durante el dia, o al reves.
+
+## Importe de compra
+
+El importe de compra es el dinero que el usuario quiere invertir en un activo.
+
+### Por que se usa
+
+En la interfaz de mercado el usuario introduce dinero, por ejemplo `10 $`, y no unidades de accion.
+
+### Por que no otro metodo
+
+Comprar por dinero es mas natural para el usuario. El backend convierte ese importe en unidades con:
+
+```text
+unidades = importe / precio actual
+```

@@ -4,7 +4,7 @@ Archivo fuente: [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtra
 
 ## Proposito
 
-`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, cartera, ganancias y tendencia de mercado para el frontend.
+`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, cartera, compras, ganancias y tendencia de mercado para el frontend.
 
 ## Responsabilidad dentro del sistema
 
@@ -110,6 +110,55 @@ balance_estimate -> estimacion con saldo inicial menos saldo actual
 none             -> no calculable
 ```
 
+### `POST /users/me/portfolio/buy`
+
+Compra un activo desde la pantalla de mercado.
+
+Requiere:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Recibe dinero a invertir, no numero de acciones:
+
+```json
+{
+  "ticker": "AAPL",
+  "amount": 10
+}
+```
+
+Funcionamiento:
+
+1. Valida token de Firebase.
+2. Valida que `ticker` exista y que `amount` sea mayor que 0.
+3. Obtiene el ultimo precio real con `ApiHandler.obtener_tendencia(ticker, "1d")`.
+4. Calcula unidades:
+
+```text
+quantity = amount / price
+```
+
+5. Llama a `DbHandler.realizar_compra(...)`.
+6. Devuelve usuario actualizado.
+
+Respuesta orientativa:
+
+```json
+{
+  "message": "Compra realizada correctamente.",
+  "operation": {
+    "ticker": "AAPL",
+    "quantity": 0.034,
+    "price": 291.23,
+    "total": 10,
+    "balance": 990
+  },
+  "user": {}
+}
+```
+
 ### `GET /market/{ticker}/trend?range=1d|1w|1y`
 
 Devuelve la tendencia historica de un activo para la grafica del frontend.
@@ -138,6 +187,15 @@ Calcula el coste invertido todavia abierto por activo. Usa compras y ventas para
 
 Si no hay historial valido, el endpoint de ganancias usa una estimacion basada en saldo inicial de 1000 $ menos saldo actual.
 
+### `BuyRequest`
+
+Modelo Pydantic para la compra desde mercado. Usa:
+
+- `ticker`
+- `amount`
+
+Se eligio `amount` porque el usuario introduce dinero a invertir. El backend calcula las unidades internamente.
+
 ## Como funciona a nivel de seguridad
 
 - El registro y el login reales ya no usan la coleccion `usuarios` para validar contrasenas.
@@ -153,6 +211,7 @@ Si no hay historial valido, el endpoint de ganancias usa una estimacion basada e
 - Se devuelve `portfolio` como lista porque Angular lo recorre mejor que un diccionario crudo.
 - Se mantiene separado el mercado en `ApiHandler` para no mezclar autenticacion con datos financieros.
 - Se prioriza el historial real para ganancias y solo se usa estimacion si no hay datos suficientes.
+- La compra se hace desde mercado porque el usuario ya esta viendo precio y tendencia del activo.
 
 ## Consideraciones
 
