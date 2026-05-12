@@ -50,6 +50,28 @@ class DbHandler:
         user_ref.set(datos_usuario)
         return True, user_id
 
+    def crear_perfil_auth(self, uid, email, username):
+        """Crea o actualiza el perfil de un usuario autenticado con Firebase Auth."""
+        user_ref = self.db.collection('usuarios').document(uid)
+        doc = user_ref.get()
+        datos_perfil = {
+            'username': username.strip(),
+            'email': email.strip().lower(),
+            'auth_provider': 'firebase_auth',
+        }
+
+        if doc.exists:
+            user_ref.set(datos_perfil, merge=True)
+        else:
+            user_ref.set({
+                **datos_perfil,
+                'saldo': 1000.0,
+                'cartera': {},
+                'fecha_creacion': firestore.SERVER_TIMESTAMP,
+            })
+
+        return self.obtener_usuario(uid)
+
     def autenticar_usuario(self, username, password):
         """Valida usuario y contraseña contra Firestore."""
         user_id = username.strip().lower()
@@ -100,6 +122,17 @@ class DbHandler:
             }
             for ticker, cantidad in cartera.items()
         ]
+
+    def obtener_perfil_publico(self, user_id):
+        """Devuelve un perfil seguro para la API, sin datos sensibles."""
+        user_data = self.obtener_usuario(user_id)
+        return {
+            'id': user_id,
+            'username': user_data.get('username', user_id),
+            'email': user_data.get('email', ''),
+            'saldo': user_data.get('saldo', 1000.0),
+            'cartera': user_data.get('cartera', {}),
+        }
 
     def _registrar_transaccion(self, user_id, tipo, ticker, cantidad, precio, total):
         """Guarda un registro de la operación en la colección 'transacciones'."""

@@ -4,182 +4,81 @@ Archivo fuente: [services/db_handler.py](C:/Users/monsu/OneDrive/Documentos/GitH
 
 ## Proposito
 
-`DbHandler` centraliza la conexion con Firebase Firestore y las operaciones principales de persistencia del backend: precios de mercado, registro e inicio de sesion de usuarios, lectura de usuario y movimientos de cartera.
+`DbHandler` centraliza el acceso a Firestore para los datos de negocio del proyecto.
 
-## Dependencias
+## Que guarda ahora mismo
 
-- Libreria externa: `firebase-admin`
-- Libreria estandar: `hashlib`
-- Credencial necesaria: ruta valida al archivo `service_account.json`
-- Servicio externo: Firebase Firestore
+La coleccion `usuarios` ya no se usa para autenticar contrasenas. Su funcion actual es guardar:
 
-## Constructor
+- `username`
+- `email`
+- `saldo`
+- `cartera`
+- `fecha_creacion`
+- `auth_provider`
 
-### `__init__(certificado_path)`
-
-Inicializa Firebase usando un certificado de servicio y crea el cliente de Firestore.
-
-### Parametros
-
-- `certificado_path`: ruta al JSON de credenciales de Firebase.
-
-## Metodos
-
-### `actualizar_precio(datos)`
-
-Actualiza en la coleccion `mercado` el documento asociado al simbolo recibido.
-
-### Parametros
-
-- `datos`: diccionario generado por `ApiHandler`, con claves como `simbolo`, `precio`, `variacion` y `porcentaje`.
-
-### Efecto
-
-Escribe en Firestore campos como:
-
-- `precio_actual`
-- `cambio`
-- `porcentaje`
-- `ultima_actualizacion`
-
-### `_encriptar_password(password)`
-
-Genera un hash SHA-256 de la contrasena para evitar guardarla en texto plano.
-
-### `crear_usuario(username, password)`
-
-Crea un documento nuevo en la coleccion `usuarios` si el nombre de usuario no existe todavia.
-
-### Parametros
-
-- `username`: nombre elegido por el usuario.
-- `password`: contrasena introducida por el usuario.
-
-### Retorno
-
-Devuelve una tupla:
-
-```python
-(exito, resultado)
-```
-
-Si la operacion va bien, `resultado` contiene el `user_id`.
-
-### Estructura guardada
-
-Los usuarios nuevos se almacenan con este formato general:
+Ejemplo:
 
 ```python
 {
-    "username": "nombre_visible",
-    "password": "hash_sha256",
+    "username": "monsunodaniel",
+    "email": "monsunodaniel@gmail.com",
     "saldo": 1000.0,
     "cartera": {},
-    "fecha_creacion": firestore.SERVER_TIMESTAMP
+    "fecha_creacion": firestore.SERVER_TIMESTAMP,
+    "auth_provider": "firebase_auth"
 }
 ```
 
-### `autenticar_usuario(username, password)`
+## Metodos principales
 
-Comprueba si existe el usuario y si la contrasena coincide con el hash guardado en Firestore.
+### `crear_perfil_auth(uid, email, username)`
 
-### Parametros
+Crea o actualiza el perfil del usuario en `usuarios/{uid}` despues de que Firebase Authentication haya creado la cuenta.
 
-- `username`: nombre del usuario.
-- `password`: contrasena en texto introducida en el login.
+### `obtener_usuario(user_id)`
 
-### Retorno
-
-Devuelve una tupla:
-
-```python
-(exito, resultado)
-```
-
-Si la operacion va bien, `resultado` contiene el `user_id`.
-
-### `obtener_usuario(user_id="usuario_demo")`
-
-Lee un usuario desde la coleccion `usuarios`. Si faltan campos como `saldo` o `cartera`, los completa en memoria. Si no existe, crea un usuario inicial con saldo `1000.0` y cartera vacia.
-
-### Parametros
-
-- `user_id`: identificador del usuario a consultar.
-
-### Retorno
-
-Devuelve un diccionario con los datos del usuario.
-
-### `realizar_compra(ticker, cantidad, precio_unidad, user_id="usuario_demo")`
-
-Comprueba si el usuario tiene saldo suficiente y, en caso afirmativo, descuenta el importe y suma la cantidad comprada a la cartera.
-
-### Parametros
-
-- `ticker`: activo a comprar.
-- `cantidad`: unidades del activo.
-- `precio_unidad`: precio de compra por unidad.
-- `user_id`: usuario sobre el que se opera.
-
-### Retorno
-
-Devuelve una tupla:
-
-```python
-(exito, saldo_resultante)
-```
-
-Tambien registra la operacion en la coleccion `transacciones`.
-
-### `realizar_venta(ticker, cantidad_a_vender, precio_unidad, user_id="usuario_demo")`
-
-Valida que el usuario tenga suficientes unidades, calcula el ingreso y actualiza saldo y cartera.
-
-### Parametros
-
-- `ticker`: activo a vender.
-- `cantidad_a_vender`: unidades a retirar de la cartera.
-- `precio_unidad`: precio usado para calcular el ingreso.
-- `user_id`: usuario sobre el que se opera.
-
-### Retorno
-
-Devuelve una tupla:
-
-```python
-(exito, saldo_resultante)
-```
-
-Tambien registra la operacion en la coleccion `transacciones`.
-
-### `obtener_historial(user_id)`
-
-Consulta las ultimas transacciones del usuario, ordenadas por fecha descendente.
+Lee un usuario desde Firestore.
 
 ### `obtener_cartera(user_id)`
 
-Devuelve la cartera del usuario como una lista simple de posiciones para poder reutilizarla desde la API o desde otros puntos del backend.
+Transforma la cartera del usuario a una lista de posiciones:
 
-## Uso dentro del proyecto
+```python
+[
+    {"ticker": "AAPL", "cantidad": 2.5}
+]
+```
 
-- [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): lectura de saldo, cartera, compras y ventas.
-- [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py): registro, login, logout, lectura de saldo, cartera, compras y ventas.
-- [services/worker_precios.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/worker_precios.py): persistencia periodica de precios en `mercado`.
+### `obtener_perfil_publico(user_id)`
 
-## Consideraciones
+Devuelve un perfil seguro para respuestas de API.
 
-- Si `certificado_path` no existe o no apunta a un JSON valido, la inicializacion de Firebase falla.
-- La clase accede directamente a colecciones concretas: `mercado` y `usuarios`.
-- Tambien usa la coleccion `transacciones` para el historial de movimientos.
-- La contrasena se almacena como hash SHA-256, no en texto plano.
-- Sigue siendo una autenticacion sencilla para aprendizaje; no sustituye a Firebase Authentication ni a un sistema de seguridad mas robusto.
-- Los errores se imprimen por consola y no se relanzan.
+### `actualizar_precio(datos)`
+
+Actualiza la coleccion `mercado` con precios sincronizados.
+
+### `realizar_compra(...)`
+
+Actualiza saldo, cartera y registra la compra en `transacciones`.
+
+### `realizar_venta(...)`
+
+Actualiza saldo, cartera y registra la venta en `transacciones`.
+
+### `obtener_historial(user_id)`
+
+Consulta las ultimas transacciones del usuario.
 
 ## Por que esta hecho asi
 
-- Se centraliza Firestore en una sola clase para que el resto del proyecto no tenga que repetir consultas ni rutas de colecciones.
-- Se usa SHA-256 porque es una mejora simple frente a guardar contrasenas en texto plano y mantiene el codigo facil de entender.
-- No se ha usado Firebase Authentication porque el objetivo actual es tener un flujo de usuarios sencillo y totalmente visible en el codigo del proyecto.
-- Se usa el nombre de usuario en minusculas como `user_id` para evitar duplicados por mayusculas y simplificar las busquedas.
-- Se registra cada compra y venta en `transacciones` para poder mostrar historial sin recalcularlo desde la cartera.
-- Se ofrece `obtener_cartera(user_id)` como metodo separado para que la capa HTTP no tenga que transformar manualmente los datos de Firestore.
+- Firestore se queda solo con datos de negocio, no con la responsabilidad de autenticar.
+- El documento del usuario usa el `uid` de Firebase Authentication, que es estable y seguro.
+- La cartera se transforma en lista dentro del backend para no obligar al frontend a reinterpretar estructuras de Firestore.
+- Se mantiene `DbHandler` como punto unico de acceso para que la logica de base de datos no se disperse en toda la aplicacion.
+
+## Seguridad
+
+- El documento ya no guarda el password ni en texto plano ni en hash.
+- El acceso a cartera y perfil debe apoyarse en el `uid` autenticado por token.
+- Los datos sensibles de identidad quedan delegados en Firebase Authentication.

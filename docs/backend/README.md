@@ -1,26 +1,26 @@
 # Documentacion del BackEnd
 
-Esta carpeta recoge la documentacion funcional del backend actual de Simtrade-BackEnd. Incluye las clases Python del proyecto y los scripts principales que coordinan la autenticacion, el mercado y la persistencia en Firestore.
+Esta carpeta recoge la documentacion funcional del backend actual de Simtrade-BackEnd. Incluye las clases Python del proyecto, los scripts principales y la migracion hacia Firebase Authentication.
 
 ## Archivos documentados
 
-- [ApiHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md): acceso a Finnhub para precio actual y yfinance para historicos.
-- [api_server.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/api_server.md): API HTTP sencilla para login y registro desde el frontend.
-- [DbHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md): conexion con Firestore, autenticacion simple y operaciones de usuario.
-- [graficas_tendencias.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/graficas_tendencias.md): endpoint de tendencias reales, rangos, yfinance y relacion con Chart.js.
-- [errores_puntos_debiles_faq.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/errores_puntos_debiles_faq.md): errores corregidos, puntos debiles y preguntas tipicas.
+- [ApiHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md): acceso a Finnhub y transformacion de cotizaciones.
+- [api_server.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/api_server.md): API REST final con Firebase Authentication.
+- [DbHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md): conexion con Firestore, perfiles, cartera, saldo e historial.
+- [errores_migracion.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/errores_migracion.md): incidencias reales encontradas durante la migracion y como se resolvieron.
+- [firebase_auth_migracion.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/firebase_auth_migracion.md): resumen del cambio definitivo a Firebase Authentication.
 - [glosario_tecnico.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/glosario_tecnico.md): explicacion de terminos tecnicos del backend y por que se usan.
 - [main.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/main.md): flujo principal de consola para registro, login, logout y operativa del usuario.
 - [worker_precios.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/worker_precios.md): sincronizacion periodica de precios desde Finnhub hacia Firestore.
 
 ## Cobertura actual
 
-Tras revisar el codigo Python del repositorio, las clases propias actualmente son:
+Las clases propias principales del backend son:
 
 - `ApiHandler`
 - `DbHandler`
 
-Ademas, el backend tiene dos scripts principales sin clases propias:
+Y los scripts principales son:
 
 - `api_server.py`
 - `main.py`
@@ -41,27 +41,23 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 
 - `FINNHUB_API_KEY`
 - `FIREBASE_JSON_PATH`
-
-## Colecciones de Firestore usadas
-
-- `usuarios`: usuarios registrados, saldo, cartera y password en formato hash.
-- `mercado`: precio actual y variacion de cada activo sincronizado.
-- `transacciones`: historial de compras y ventas por usuario.
+- `FIREBASE_WEB_API_KEY`
+- `SIMTRADE_API_HOST`
+- `SIMTRADE_API_PORT`
 
 ## Resumen de arquitectura
 
 - `ApiHandler` consulta Finnhub y devuelve datos en un formato sencillo para el proyecto.
-- `ApiHandler` tambien consulta yfinance para devolver historicos reales de tendencia.
-- `DbHandler` encapsula Firestore y centraliza registro, login, cartera, saldo e historial.
-- `api_server.py` expone endpoints HTTP para login, registro, cartera y tendencia de mercado.
+- `DbHandler` encapsula Firestore y centraliza perfiles, cartera, saldo e historial.
+- `api_server.py` expone endpoints HTTP para autenticacion, cartera y tendencias.
 - `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos.
-- `main.py` gestiona el acceso del usuario y la operativa contra Firestore usando los precios ya sincronizados.
+- `main.py` mantiene una app de consola para pruebas y operativa local usando tambien Firebase Authentication.
 
 ## Decisiones de diseno
 
 - Se ha separado el acceso a Finnhub en `ApiHandler` para no mezclar llamadas externas con logica de base de datos o interfaz.
 - Se ha concentrado Firestore en `DbHandler` para tener un unico punto de acceso a usuarios, mercado e historial.
-- Se ha mantenido `main.py` como aplicacion de consola porque es una forma facil de probar el flujo sin depender del frontend.
 - Se ha creado `api_server.py` con FastAPI para tener una API REST sencilla, legible y mas comoda de consumir desde el frontend.
-- Se ha usado `yfinance` para historicos porque simplifica mucho obtener datos reales para graficas.
+- La autenticacion queda delegada en Firebase Authentication, mientras Firestore guarda solo el perfil y los datos de negocio.
+- La consola y la API usan el mismo criterio de autenticacion para evitar dobles sistemas y errores de compatibilidad entre web y terminal.
 - Se ha dejado `worker_precios.py` como proceso separado porque actualizar precios continuamente no deberia bloquear ni el login ni la aplicacion de usuario.

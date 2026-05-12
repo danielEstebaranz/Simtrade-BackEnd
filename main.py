@@ -1,8 +1,51 @@
 import os
 from dotenv import load_dotenv
+from firebase_admin import auth as firebase_auth
+import requests
 from services.db_handler import DbHandler
 
 load_dotenv()
+
+FIREBASE_WEB_API_KEY = os.getenv('FIREBASE_WEB_API_KEY', 'AIzaSyDRpzs5pDFYZlbERSIXPuijs8lF18khL-s')
+
+def resolver_email(email_o_usuario):
+    valor = email_o_usuario.strip().lower()
+    if '@' in valor:
+        return valor
+    return ''
+
+def resolver_nombre_visible(email_o_usuario):
+    valor = email_o_usuario.strip()
+    if '@' in valor:
+        return valor.split('@', 1)[0]
+    return valor
+
+def iniciar_sesion_firebase(email, password):
+    response = requests.post(
+        f'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}',
+        json={
+            'email': email,
+            'password': password,
+            'returnSecureToken': True,
+        },
+        timeout=30,
+    )
+
+    if response.status_code == 200:
+        return True, response.json().get('localId')
+
+    try:
+        error_code = response.json().get('error', {}).get('message', '')
+    except ValueError:
+        error_code = ''
+
+    errores = {
+        'EMAIL_NOT_FOUND': 'No existe una cuenta con ese email.',
+        'INVALID_PASSWORD': 'La contrasena no es correcta.',
+        'USER_DISABLED': 'La cuenta esta deshabilitada.',
+        'INVALID_LOGIN_CREDENTIALS': 'Las credenciales no son correctas.',
+    }
+    return False, errores.get(error_code, 'No se pudo iniciar sesion con Firebase Authentication.')
 
 def mostrar_menu_login():
     print("\n" + "="*40)
@@ -16,8 +59,13 @@ def mostrar_menu_login():
 def iniciar_sesion(db):
     username = input("Usuario: ").strip()
     password = input("Contrasena: ").strip()
+    email = resolver_email(username)
 
-    ok, resultado = db.autenticar_usuario(username, password)
+    if not email:
+        print("\nError: debes introducir un email valido.")
+        return None
+
+    ok, resultado = iniciar_sesion_firebase(email, password)
     if ok:
         print(f"\nBienvenido, {username}.")
         return resultado
@@ -28,18 +76,36 @@ def iniciar_sesion(db):
 def registrarse(db):
     username = input("Elige un nombre de usuario: ").strip()
     password = input("Elige una contrasena: ").strip()
+    email = resolver_email(username)
 
     if not username or not password:
         print("\nError: usuario y contrasena son obligatorios.")
         return None
 
-    ok, resultado = db.crear_usuario(username, password)
-    if ok:
-        print(f"\nUsuario {username} creado correctamente.")
-        return resultado
+    if len(password) < 6:
+        print("\nError: la contrasena debe tener al menos 6 caracteres.")
+        return None
 
-    print(f"\nError: {resultado}")
-    return None
+    if not email:
+        print("\nError: para registrarte debes usar un email valido.")
+        return None
+
+    try:
+        user_record = firebase_auth.create_user(
+            email=email,
+            password=password,
+            display_name=resolver_nombre_visible(username),
+        )
+        db.crear_perfil_auth(user_record.uid, email, resolver_nombre_visible(username))
+        print(f"\nUsuario {username} creado correctamente.")
+        return user_record.uid
+    except ValueError as exc:
+        print(f"\nError: {exc}")
+        return None
+    except Exception as exc:
+        print(f"\nError: no se pudo crear el usuario en Firebase Authentication: {exc}")
+        return None
+
 
 def autenticar_usuario(db):
     while True:
