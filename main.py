@@ -6,7 +6,7 @@ from services.db_handler import DbHandler
 
 load_dotenv()
 
-FIREBASE_WEB_API_KEY = os.getenv('FIREBASE_WEB_API_KEY', 'AIzaSyDRpzs5pDFYZlbERSIXPuijs8lF18khL-s')
+FIREBASE_WEB_API_KEY = os.getenv('FIREBASE_WEB_API_KEY', '').strip()
 
 def resolver_email(email_o_usuario):
     valor = email_o_usuario.strip().lower()
@@ -21,6 +21,9 @@ def resolver_nombre_visible(email_o_usuario):
     return valor
 
 def iniciar_sesion_firebase(email, password):
+    if not FIREBASE_WEB_API_KEY:
+        return False, 'Falta configurar FIREBASE_WEB_API_KEY en el entorno.'
+
     response = requests.post(
         f'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}',
         json={

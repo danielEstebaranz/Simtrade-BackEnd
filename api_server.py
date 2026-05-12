@@ -15,7 +15,7 @@ load_dotenv()
 
 HOST = os.getenv('SIMTRADE_API_HOST', '127.0.0.1')
 PORT = int(os.getenv('SIMTRADE_API_PORT', '8000'))
-FIREBASE_WEB_API_KEY = os.getenv('FIREBASE_WEB_API_KEY', 'AIzaSyDRpzs5pDFYZlbERSIXPuijs8lF18khL-s')
+FIREBASE_WEB_API_KEY = os.getenv('FIREBASE_WEB_API_KEY', '').strip()
 ALLOWED_ORIGINS = [
     'http://127.0.0.1:4200',
     'http://localhost:4200',
@@ -101,6 +101,12 @@ def public_user(user_id):
 
 
 def firebase_sign_in(email, password):
+    if not FIREBASE_WEB_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail='Falta configurar FIREBASE_WEB_API_KEY en el entorno.',
+        )
+
     response = requests.post(
         f'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_API_KEY}',
         json={
