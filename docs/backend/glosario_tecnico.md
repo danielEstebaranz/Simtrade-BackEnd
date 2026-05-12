@@ -289,3 +289,43 @@ Ahora mismo el backend no cachea historicos. Cada peticion de tendencia pide dat
 ### Por que no se ha hecho todavia
 
 Se priorizo una implementacion sencilla y clara. La cache puede anadirse despues si hay muchas peticiones o problemas de rendimiento.
+
+## Coste abierto
+
+El coste abierto es el dinero invertido que todavia corresponde a posiciones que siguen en cartera.
+
+### Por que se usa
+
+Se usa para calcular ganancias totales:
+
+```text
+ganancia total = valor actual - coste abierto
+```
+
+### Por que no otro metodo
+
+No basta con mirar solo el saldo porque puede haber ventas parciales. El historial permite calcular cuanto coste queda asociado a las acciones que aun se conservan.
+
+## Ganancia diaria
+
+La ganancia diaria es el cambio de valor durante el dia actual.
+
+### Por que se usa
+
+Sirve para saber si la cartera ha subido o bajado hoy.
+
+### Por que no sustituye a la ganancia total
+
+Porque compara contra el inicio del dia, no contra el precio de compra.
+
+## Ganancia total
+
+La ganancia total es lo ganado o perdido desde la compra o desde el coste invertido calculado.
+
+### Por que se usa
+
+Sirve para saber si la inversion completa va en positivo o negativo.
+
+### Por que puede diferir de la diaria
+
+Una posicion puede ir ganando en total pero haber bajado durante el dia, o al reves.

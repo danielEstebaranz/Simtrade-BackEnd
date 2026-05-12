@@ -70,11 +70,18 @@ Actualiza saldo, cartera y registra la venta en `transacciones`.
 
 Consulta las ultimas transacciones del usuario.
 
+### `obtener_transacciones_usuario(user_id)`
+
+Devuelve todas las transacciones del usuario para calcular ganancias.
+
+Primero consulta por usuario y despues ordena en Python por `fecha`. Se hizo asi para evitar depender de indices compuestos de Firestore al ordenar directamente en la query.
+
 ## Por que esta hecho asi
 
 - Firestore se queda solo con datos de negocio, no con la responsabilidad de autenticar.
 - El documento del usuario usa el `uid` de Firebase Authentication, que es estable y seguro.
 - La cartera se transforma en lista dentro del backend para no obligar al frontend a reinterpretar estructuras de Firestore.
+- Las transacciones se usan para calcular el coste invertido real antes de recurrir a estimaciones.
 - Se mantiene `DbHandler` como punto unico de acceso para que la logica de base de datos no se disperse en toda la aplicacion.
 
 ## Seguridad

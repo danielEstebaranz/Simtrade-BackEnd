@@ -4,7 +4,7 @@ Archivo fuente: [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtra
 
 ## Proposito
 
-`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, cartera y tendencia de mercado para el frontend.
+`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, cartera, ganancias y tendencia de mercado para el frontend.
 
 ## Responsabilidad dentro del sistema
 
@@ -12,7 +12,7 @@ Este archivo recibe las peticiones HTTP del frontend y coordina tres piezas:
 
 - Firebase Authentication para registro e inicio de sesion
 - Firestore para perfil, cartera, saldo e historial
-- `ApiHandler` para las tendencias historicas del mercado
+- `ApiHandler` para las tendencias historicas del mercado y valoracion de cartera
 
 ## Endpoints actuales
 
@@ -78,6 +78,38 @@ Devuelve el perfil publico del usuario autenticado a partir de `Authorization: B
 
 Devuelve la cartera del usuario autenticado a partir de `Authorization: Bearer <token>`.
 
+### `GET /users/me/portfolio/gains`
+
+Devuelve las ganancias totales y diarias de la cartera del usuario autenticado.
+
+Requiere:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Respuesta orientativa:
+
+```json
+{
+  "costBasisSource": "history",
+  "dailyGain": -0.06,
+  "hasCostBasis": true,
+  "investedCost": 10.0,
+  "source": "yfinance",
+  "totalGain": 0.02,
+  "totalValue": 10.02
+}
+```
+
+`costBasisSource` indica como se calculo el dinero invertido:
+
+```text
+history          -> historial real de transacciones
+balance_estimate -> estimacion con saldo inicial menos saldo actual
+none             -> no calculable
+```
+
 ### `GET /market/{ticker}/trend?range=1d|1w|1y`
 
 Devuelve la tendencia historica de un activo para la grafica del frontend.
@@ -100,6 +132,12 @@ Llama a Firebase Authentication usando `accounts:signInWithPassword`. Esta es la
 
 Valida un `ID token` recibido en la cabecera `Authorization`.
 
+### `calcular_costes_abiertos(transacciones)`
+
+Calcula el coste invertido todavia abierto por activo. Usa compras y ventas para saber cuanto dinero queda invertido en las posiciones actuales.
+
+Si no hay historial valido, el endpoint de ganancias usa una estimacion basada en saldo inicial de 1000 $ menos saldo actual.
+
 ## Como funciona a nivel de seguridad
 
 - El registro y el login reales ya no usan la coleccion `usuarios` para validar contrasenas.
@@ -114,6 +152,7 @@ Valida un `ID token` recibido en la cabecera `Authorization`.
 - Se mantiene compatibilidad con el formulario actual del frontend aceptando `username` como email para no forzar una ruptura brusca de la UI.
 - Se devuelve `portfolio` como lista porque Angular lo recorre mejor que un diccionario crudo.
 - Se mantiene separado el mercado en `ApiHandler` para no mezclar autenticacion con datos financieros.
+- Se prioriza el historial real para ganancias y solo se usa estimacion si no hay datos suficientes.
 
 ## Consideraciones
 

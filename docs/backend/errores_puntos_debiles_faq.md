@@ -86,6 +86,106 @@ Habia un proceso viejo escuchando en el puerto `8000`.
 
 Se paro el proceso antiguo y se arranco el backend actualizado.
 
+### El puerto 8000 ya estaba ocupado
+
+#### Causa
+
+Al intentar arrancar `api_server.py`, Windows devolvio:
+
+```text
+[WinError 10048] solo se permite un uso de cada direccion de socket
+```
+
+Ya habia un proceso escuchando en `127.0.0.1:8000`.
+
+#### Solucion
+
+Se localizo el proceso:
+
+```powershell
+netstat -ano | Select-String ":8000"
+```
+
+Y se paro:
+
+```powershell
+Stop-Process -Id <PID> -Force
+```
+
+### Faltaba `FIREBASE_WEB_API_KEY`
+
+#### Causa
+
+El login contra Firebase Authentication necesita la Web API Key del proyecto Firebase.
+
+El `.env` tenia `FINNHUB_API_KEY` y `FIREBASE_JSON_PATH`, pero faltaba:
+
+```env
+FIREBASE_WEB_API_KEY=...
+```
+
+#### Solucion
+
+Se debe anadir en el `.env` del backend y reiniciar el servidor.
+
+La clave se obtiene en Firebase Console:
+
+```text
+Configuracion del proyecto -> General -> App web -> apiKey
+```
+
+### Firestore se conectaba dos veces
+
+#### Causa
+
+El backend arrancaba Uvicorn con:
+
+```py
+uvicorn.run('api_server:app', ...)
+```
+
+Al ejecutar el archivo directamente, eso podia reimportar el modulo y crear dos inicializaciones visibles.
+
+#### Solucion
+
+Se cambio a:
+
+```py
+uvicorn.run(app, host=HOST, port=PORT, reload=False)
+```
+
+### `Ganancias totales` salia como `Sin coste`
+
+#### Causa
+
+El backend no encontraba historial de transacciones para calcular el dinero invertido real.
+
+Ademas, ordenar por `fecha` directamente en Firestore podia requerir indice.
+
+#### Solucion
+
+Se cambio a:
+
+- consultar transacciones por usuario
+- ordenar en Python
+- calcular coste abierto por historial
+- si no hay historial valido, estimar con `1000 - saldo actual`
+
+### Ganancia total positiva y ganancia diaria negativa parecia raro
+
+#### Explicacion
+
+No es un error. La ganancia total compara contra el precio de compra o coste invertido. La diaria compara contra el primer precio del dia.
+
+Ejemplo:
+
+```text
+Ganancia total:  +0,02 $
+Ganancia diaria: -0,06 $
+```
+
+Puede pasar si la posicion sigue por encima de tu compra, pero hoy ha bajado.
+
 ## Librerias usadas y motivo
 
 ### FastAPI
@@ -168,6 +268,16 @@ El backend acepta el ticker en la URL y lo pasa al proveedor. Si el ticker no ex
 
 Cada peticion de tendencia pide datos externos. Podria optimizarse con cache temporal.
 
+### Ganancias estimadas
+
+Si no hay historial de compras, el backend estima el dinero invertido con:
+
+```text
+1000 - saldo actual
+```
+
+Esto es valido para el proyecto actual, pero no es tan exacto como guardar coste medio real por activo.
+
 ### No hay tests automatizados
 
 Se ha validado con build y llamadas manuales, pero no hay suite de tests.
@@ -212,6 +322,16 @@ Debe aparecer:
 ```json
 "source": "yfinance"
 ```
+
+### Como compruebo las ganancias
+
+Hace falta un `idToken` obtenido en login:
+
+```powershell
+curl.exe -s -i "http://127.0.0.1:8000/users/me/portfolio/gains" -H "Authorization: Bearer <idToken>"
+```
+
+Sin token debe devolver `401`.
 
 ### Donde veo documentacion interactiva
 
