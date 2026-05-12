@@ -4,51 +4,21 @@ Archivo fuente: [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtra
 
 ## Proposito
 
-`api_server.py` expone una API REST minima con FastAPI para que el frontend pueda registrar usuarios, iniciar sesion, consultar cartera y obtener tendencias reales de mercado.
+`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, cartera y tendencia de mercado para el frontend.
 
 ## Responsabilidad dentro del sistema
 
-Este script actua como puente entre el frontend y la logica del backend. Su trabajo es recibir peticiones HTTP, validar datos basicos y devolver respuestas JSON sencillas.
+Este archivo recibe las peticiones HTTP del frontend y coordina tres piezas:
 
-## Dependencias
+- Firebase Authentication para registro e inicio de sesion
+- Firestore para perfil, cartera, saldo e historial
+- `ApiHandler` para las tendencias historicas del mercado
 
-- Libreria estandar: `os`
-- Libreria externa: `python-dotenv`
-- Libreria externa: `fastapi`
-- Libreria externa: `uvicorn`
-- Libreria externa: `pydantic`
-- Clase interna:
-  - [DbHandler](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md)
-  - [ApiHandler](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md)
+## Endpoints actuales
 
-## Variables de entorno usadas
+### `GET /`
 
-- `FIREBASE_JSON_PATH`
-- `SIMTRADE_API_HOST`
-- `SIMTRADE_API_PORT`
-
-## Configuracion base
-
-- Host por defecto: `127.0.0.1`
-- Puerto por defecto: `8000`
-- Origenes permitidos por defecto:
-  - `http://127.0.0.1:4200`
-  - `http://localhost:4200`
-
-## Endpoints disponibles
-
-### `POST /auth/login`
-
-Recibe:
-
-```json
-{
-  "username": "usuario",
-  "password": "clave"
-}
-```
-
-Si las credenciales son correctas, devuelve un JSON con mensaje y datos publicos del usuario.
+Comprueba si la API esta levantada.
 
 ### `POST /auth/register`
 
@@ -56,122 +26,97 @@ Recibe:
 
 ```json
 {
+  "username": "usuario@email.com",
+  "password": "clave_segura"
+}
+```
+
+Opcionalmente tambien puede recibir:
+
+```json
+{
+  "email": "usuario@email.com",
   "username": "usuario",
-  "password": "clave"
+  "password": "clave_segura"
 }
 ```
 
-Si el usuario no existe, lo crea en Firestore y devuelve sus datos publicos.
+Funcionamiento:
 
-### `GET /users/{username}/portfolio`
+1. Resuelve el email real.
+2. Crea el usuario en Firebase Authentication.
+3. Crea el perfil de negocio en Firestore.
+4. Devuelve el usuario publico.
 
-Devuelve la cartera del usuario en un formato simple para poder recorrerla e imprimirla en el frontend.
+### `POST /auth/login`
 
-Respuesta orientativa:
+Recibe:
 
 ```json
 {
-  "user": {
-    "id": "daniel",
-    "username": "Daniel",
-    "saldo": 1000.0,
-    "cartera": {
-      "AAPL": 2.5
-    }
-  },
-  "portfolio": [
-    {
-      "ticker": "AAPL",
-      "cantidad": 2.5
-    }
-  ],
-  "total_activos": 1
+  "username": "usuario@email.com",
+  "password": "clave_segura"
 }
 ```
 
-### `GET /market/{ticker}/trend`
+Tambien admite `email` si en algun momento el frontend lo envia.
 
-Devuelve puntos historicos reales de un activo para pintar una grafica en el frontend.
+Funcionamiento:
 
-Ejemplos:
+1. Convierte el identificador de entrada en email.
+2. Llama al endpoint oficial `signInWithPassword` de Firebase Authentication.
+3. Si la autenticacion es correcta, devuelve:
+   - `user`
+   - `idToken`
+   - `refreshToken`
 
-```text
-GET /market/AAPL/trend?range=1d
-GET /market/AAPL/trend?range=1w
-GET /market/AAPL/trend?range=1y
-```
+### `GET /auth/me`
 
-Rangos permitidos:
+Devuelve el perfil publico del usuario autenticado a partir de `Authorization: Bearer <token>`.
 
-- `1d`: un dia
-- `1w`: una semana de mercado
-- `1y`: un ano
+### `GET /users/me/portfolio`
 
-Respuesta orientativa:
+Devuelve la cartera del usuario autenticado a partir de `Authorization: Bearer <token>`.
 
-```json
-{
-  "ticker": "AAPL",
-  "range": "1d",
-  "points": [
-    {
-      "timestamp": 1778506200,
-      "price": 291.23
-    }
-  ],
-  "source": "yfinance"
-}
-```
+### `GET /market/{ticker}/trend?range=1d|1w|1y`
 
-Si el rango no es valido devuelve `400`. Si no hay datos reales para ese activo devuelve `404`.
+Devuelve la tendencia historica de un activo para la grafica del frontend.
 
-### `OPTIONS`
+## Piezas importantes
 
-FastAPI y el middleware CORS responden automaticamente a las peticiones preflight del navegador.
+### `resolve_email(email, username)`
 
-## Funciones y piezas importantes
+Resuelve el email real de autenticacion. Se usa para mantener compatibilidad con el frontend actual, que todavia usa un campo llamado `username` aunque en realidad ahora contiene un email.
 
-### `public_user(user_id)`
+### `resolve_display_name(username, email)`
 
-Construye una version segura del usuario para devolverla al frontend sin incluir la contrasena.
+Genera un nombre visible para Firebase Auth. Si el valor recibido es un email, toma la parte anterior a `@`.
 
-### `AuthRequest`
+### `firebase_sign_in(email, password)`
 
-Modelo de entrada para validar `username` y `password` en login y registro.
+Llama a Firebase Authentication usando `accounts:signInWithPassword`. Esta es la pieza que hace que el login ya no dependa de Firestore.
 
-### `app`
+### `verify_current_user(authorization)`
 
-Instancia principal de FastAPI donde se registran las rutas y el middleware CORS.
+Valida un `ID token` recibido en la cabecera `Authorization`.
 
-## Flujo de ejecucion
+## Como funciona a nivel de seguridad
 
-1. Carga variables de entorno.
-2. Crea una instancia global de `DbHandler`.
-3. Configura FastAPI y el middleware CORS.
-4. Arranca Uvicorn en el host y puerto configurados.
-5. Espera peticiones del frontend.
-6. Segun la ruta:
-   - devuelve la cartera de un usuario
-   - devuelve la tendencia de mercado de un ticker
-   - autentica al usuario
-   - registra al usuario
-   - o devuelve el estado basico de la API
+- El registro y el login reales ya no usan la coleccion `usuarios` para validar contrasenas.
+- La contraseña vive en Firebase Authentication.
+- Firestore solo guarda el perfil y los datos de negocio.
+- Las rutas protegidas usan `ID tokens` verificados por backend.
 
 ## Por que esta hecho asi
 
-- Se usa FastAPI porque mantiene el codigo claro pero da una estructura REST mas limpia, validacion automatica y mejor integracion con frontend.
-- Se reutiliza `DbHandler` para no duplicar la logica de usuarios entre consola y API.
-- Se devuelve un usuario publico sin password porque el frontend solo necesita identidad, saldo y cartera.
-- Se devuelve tambien `portfolio` como lista de posiciones porque en frontend es mas comodo recorrer una lista para imprimir que un diccionario crudo.
-- La transformacion de cartera vive en `DbHandler` y no en la ruta para mantener `api_server.py` centrado en HTTP y no en logica de datos.
-- La tendencia de mercado vive en `ApiHandler` para mantener separada la logica de proveedores externos.
-- Se ha limitado CORS a `localhost:4200` porque el frontend actual trabaja en desarrollo desde Angular en ese puerto.
-- Se usan endpoints pequenos y directos porque ahora mismo el objetivo es cubrir login, registro y consulta de cartera sin construir una API completa antes de tiempo.
+- Se usa FastAPI porque el codigo sigue siendo legible y el backend queda mas ordenado para el frontend.
+- Se usa Firebase Authentication porque es mas seguro que guardar y comparar passwords en Firestore.
+- Se mantiene compatibilidad con el formulario actual del frontend aceptando `username` como email para no forzar una ruptura brusca de la UI.
+- Se devuelve `portfolio` como lista porque Angular lo recorre mejor que un diccionario crudo.
+- Se mantiene separado el mercado en `ApiHandler` para no mezclar autenticacion con datos financieros.
 
 ## Consideraciones
 
-- Este servidor no implementa tokens, sesiones ni refresco de autenticacion.
-- La seguridad esta pensada para un proyecto academico y de aprendizaje, no para produccion.
-- Si Firestore no esta disponible o faltan variables de entorno, las peticiones no funcionaran correctamente.
-- Si el proveedor de mercado no reconoce el ticker, la ruta de tendencia devolvera `404`.
-- La documentacion interactiva de FastAPI queda disponible por defecto en `/docs`.
+- El campo visual del frontend ya representa un email, aunque internamente se siga llamando `username` en algunos sitios.
+- El backend necesita `FIREBASE_WEB_API_KEY` para el login contra Firebase Auth. Si no existe en entorno, usa el valor configurado para este proyecto.
+- La documentacion interactiva de FastAPI sigue disponible en `/docs`.
