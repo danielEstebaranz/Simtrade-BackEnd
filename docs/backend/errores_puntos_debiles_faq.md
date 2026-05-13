@@ -292,6 +292,34 @@ Se intento usar un `linear-gradient` con un ancho fijo para pintar la franja del
 
 Se elimino el gradiente fijo y se dejo que el layout pinte fondos por capas: contenedor oscuro y contenido principal claro.
 
+### Usuario recien registrado no podia comprar
+
+#### Causa
+
+`POST /auth/register` creaba el usuario en Firebase Authentication y el perfil en Firestore, pero solo devolvia `user`.
+
+El frontend entraba al panel porque tenia usuario, pero no tenia `idToken`. Despues, al comprar, el frontend no podia enviar:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Por eso la compra mostraba que el usuario no habia iniciado sesion.
+
+#### Solucion
+
+Despues de crear el usuario, el backend llama tambien a `firebase_sign_in(email, password)` y devuelve:
+
+```json
+{
+  "user": {},
+  "idToken": "...",
+  "refreshToken": "..."
+}
+```
+
+Asi el registro y el login dejan la misma sesion preparada para comprar, vender y consultar cartera.
+
 ## Librerias usadas y motivo
 
 ### FastAPI

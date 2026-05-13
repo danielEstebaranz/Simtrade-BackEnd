@@ -46,7 +46,10 @@ Funcionamiento:
 1. Resuelve el email real.
 2. Crea el usuario en Firebase Authentication.
 3. Crea el perfil de negocio en Firestore.
-4. Devuelve el usuario publico.
+4. Inicia sesion automaticamente con Firebase Authentication.
+5. Devuelve el usuario publico, `idToken` y `refreshToken`.
+
+Se devuelve token tambien en registro para que el frontend quede en el mismo estado que despues de un login normal. Sin ese token, el usuario podia entrar al panel pero no comprar ni vender.
 
 ### `POST /auth/login`
 

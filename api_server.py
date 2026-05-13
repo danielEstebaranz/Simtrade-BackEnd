@@ -434,10 +434,13 @@ def register(payload: RegisterRequest):
         )
 
     db.crear_perfil_auth(user_record.uid, email, display_name)
+    firebase_session = firebase_sign_in(email, password)
 
     return {
         'message': 'Usuario creado correctamente en Firebase Authentication.',
         'user': public_user(user_record.uid),
+        'idToken': firebase_session.get('idToken'),
+        'refreshToken': firebase_session.get('refreshToken'),
     }
 
 
