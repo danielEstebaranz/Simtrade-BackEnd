@@ -174,6 +174,16 @@ def get_my_portfolio(authorization: str | None = Header(default=None)):
     }
 
 
+@app.get('/users/me/history')
+def get_my_history(authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    transacciones = db.obtener_historial(user_id)
+
+    return {
+        'items': [public_transaction(transaccion) for transaccion in transacciones],
+    }
+
+
 @app.get('/users/me/portfolio/gains')
 def get_my_portfolio_gains(authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
@@ -374,6 +384,20 @@ def calcular_costes_abiertos(transacciones):
         ticker: coste
         for ticker, coste in costes.items()
         if cantidades.get(ticker, 0.0) > 0 and coste > 0
+    }
+
+
+def public_transaction(transaccion):
+    fecha = transaccion.get('fecha')
+
+    return {
+        'id': transaccion.get('id', ''),
+        'type': str(transaccion.get('tipo', '')).lower(),
+        'ticker': str(transaccion.get('ticker', '')).upper(),
+        'quantity': float(transaccion.get('cantidad', 0) or 0),
+        'price': float(transaccion.get('precio_unidad', 0) or 0),
+        'total': float(transaccion.get('total_dinero', 0) or 0),
+        'date': fecha.isoformat() if hasattr(fecha, 'isoformat') else None,
     }
 
 
