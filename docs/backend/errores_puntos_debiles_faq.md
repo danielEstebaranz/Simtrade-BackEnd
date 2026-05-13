@@ -235,6 +235,63 @@ El input tenia `width: 100%`, pero su padding y borde se sumaban al ancho total.
 
 Se anadio `box-sizing: border-box` al popup y sus hijos.
 
+### Venta desde cartera: el importe no coincidia exactamente
+
+#### Causa
+
+El frontend mostraba un valor de posicion calculado con el ultimo precio de la tendencia cargada. Al vender, el backend consulta de nuevo el precio real para ejecutar la operacion.
+
+Si el precio cambia entre esos dos momentos, vender el 25 % de una posicion que parecia valer 100 $ puede devolver, por ejemplo, 24,66 $.
+
+#### Solucion
+
+Se documento el comportamiento y se cambio la UI para mostrar `Valor actual` en lugar de `Dinero invertido`.
+
+La venta se mantiene usando precio real del backend en el momento de operar.
+
+### El sidebar no llegaba hasta abajo
+
+#### Causa
+
+El frontend tenia el sidebar con `min-height: 100dvh`, que cubre la ventana visible inicial, pero no todo el documento si el contenido crece verticalmente.
+
+#### Solucion
+
+En frontend se corrigio con:
+
+```css
+:host {
+  position: sticky;
+  top: 0;
+}
+
+.sidebar {
+  height: 100dvh;
+}
+```
+
+Despues se ajusto el fondo del dashboard para que el lateral se mantenga oscuro hasta abajo:
+
+```css
+.app-shell {
+  background: #111827;
+}
+
+.main-content {
+  background: #f8fafc;
+}
+```
+
+### La primera solucion del sidebar creo un corte visual
+
+#### Causa
+
+Se intento usar un `linear-gradient` con un ancho fijo para pintar la franja del sidebar. Esa medida no coincidio siempre con el ancho real.
+
+#### Solucion
+
+Se elimino el gradiente fijo y se dejo que el layout pinte fondos por capas: contenedor oscuro y contenido principal claro.
+
 ## Librerias usadas y motivo
 
 ### FastAPI
@@ -327,6 +384,12 @@ Si no hay historial de compras, el backend estima el dinero invertido con:
 
 Esto es valido para el proyecto actual, pero no es tan exacto como guardar coste medio real por activo.
 
+### Diferencia entre valor mostrado y venta ejecutada
+
+El precio de mercado se consulta en distintas peticiones. Una pantalla puede mostrar un valor y la venta puede ejecutarse unos segundos despues con otro precio.
+
+Esto es correcto para datos reales, pero a futuro se podria mostrar una confirmacion con el precio exacto justo antes de vender.
+
 ### No hay tests automatizados
 
 Se ha validado con build y llamadas manuales, pero no hay suite de tests.
@@ -391,6 +454,26 @@ curl.exe -s -i "http://127.0.0.1:8000/users/me/portfolio/buy" -H "Authorization:
 ```
 
 Si el usuario tiene saldo suficiente, debe devolver usuario actualizado y datos de la operacion.
+
+### Como compruebo la venta
+
+Hace falta un `idToken` obtenido en login:
+
+```powershell
+curl.exe -s -i "http://127.0.0.1:8000/users/me/portfolio/sell" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"ticker\":\"AAPL\",\"percentage\":25}"
+```
+
+Si el usuario tiene unidades de ese activo, debe devolver usuario actualizado y datos de la venta.
+
+### Por que el frontend muestra `Valor actual`
+
+Porque antes de vender interesa saber cuanto vale la posicion ahora mismo:
+
+```text
+valor actual = unidades * ultimo precio real
+```
+
+`investedCost` sigue existiendo para calcular rentabilidad, pero no es el dato mas claro para ejecutar una venta.
 
 ### Donde veo documentacion interactiva
 

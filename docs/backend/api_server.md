@@ -4,7 +4,7 @@ Archivo fuente: [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtra
 
 ## Proposito
 
-`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, cartera, compras, ganancias y tendencia de mercado para el frontend.
+`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, cartera, compras, ventas, ganancias y tendencia de mercado para el frontend.
 
 ## Responsabilidad dentro del sistema
 
@@ -82,6 +82,8 @@ Devuelve la cartera del usuario autenticado a partir de `Authorization: Bearer <
 
 Devuelve las ganancias totales y diarias de la cartera del usuario autenticado.
 
+Tambien devuelve el valor y coste por cada posicion dentro de `positions`.
+
 Requiere:
 
 ```text
@@ -96,6 +98,16 @@ Respuesta orientativa:
   "dailyGain": -0.06,
   "hasCostBasis": true,
   "investedCost": 10.0,
+  "positions": {
+    "AAPL": {
+      "costBasisSource": "history",
+      "dailyGain": 0.42,
+      "hasCostBasis": true,
+      "investedCost": 44.10,
+      "totalGain": 1.72,
+      "totalValue": 45.82
+    }
+  },
   "source": "yfinance",
   "totalGain": 0.02,
   "totalValue": 10.02
@@ -108,6 +120,12 @@ Respuesta orientativa:
 history          -> historial real de transacciones
 balance_estimate -> estimacion con saldo inicial menos saldo actual
 none             -> no calculable
+```
+
+`positions[ticker].totalValue` se usa en el frontend como `Valor actual` del activo seleccionado:
+
+```text
+valor actual = unidades en cartera * ultimo precio real
 ```
 
 ### `POST /users/me/portfolio/buy`
@@ -159,6 +177,59 @@ Respuesta orientativa:
 }
 ```
 
+### `POST /users/me/portfolio/sell`
+
+Vende un porcentaje de un activo desde la pantalla de cartera.
+
+Requiere:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Recibe:
+
+```json
+{
+  "ticker": "AAPL",
+  "percentage": 25
+}
+```
+
+Funcionamiento:
+
+1. Valida token de Firebase.
+2. Valida que `ticker` exista y que `percentage` este entre 0 y 100.
+3. Lee la cantidad actual del activo en la cartera del usuario.
+4. Obtiene el ultimo precio real con `ApiHandler.obtener_tendencia(ticker, "1d")`.
+5. Calcula unidades a vender:
+
+```text
+quantity = current_quantity * (percentage / 100)
+```
+
+6. Llama a `DbHandler.realizar_venta(...)`.
+7. Devuelve usuario actualizado.
+
+Respuesta orientativa:
+
+```json
+{
+  "message": "Venta realizada correctamente.",
+  "operation": {
+    "ticker": "AAPL",
+    "quantity": 0.038,
+    "percentage": 25,
+    "price": 300.15,
+    "total": 11.40,
+    "balance": 1001.40
+  },
+  "user": {}
+}
+```
+
+El importe final de la venta puede variar ligeramente respecto al valor visto en pantalla, porque el backend consulta precio real en el momento de ejecutar la operacion.
+
 ### `GET /market/{ticker}/trend?range=1d|1w|1y`
 
 Devuelve la tendencia historica de un activo para la grafica del frontend.
@@ -196,6 +267,15 @@ Modelo Pydantic para la compra desde mercado. Usa:
 
 Se eligio `amount` porque el usuario introduce dinero a invertir. El backend calcula las unidades internamente.
 
+### `SellRequest`
+
+Modelo Pydantic para la venta desde cartera. Usa:
+
+- `ticker`
+- `percentage`
+
+Se eligio `percentage` porque en cartera el usuario reduce una posicion existente. El backend calcula las unidades y el importe internamente.
+
 ## Como funciona a nivel de seguridad
 
 - El registro y el login reales ya no usan la coleccion `usuarios` para validar contrasenas.
@@ -212,6 +292,8 @@ Se eligio `amount` porque el usuario introduce dinero a invertir. El backend cal
 - Se mantiene separado el mercado en `ApiHandler` para no mezclar autenticacion con datos financieros.
 - Se prioriza el historial real para ganancias y solo se usa estimacion si no hay datos suficientes.
 - La compra se hace desde mercado porque el usuario ya esta viendo precio y tendencia del activo.
+- La venta se hace desde cartera porque el usuario ya esta viendo sus posiciones reales.
+- El frontend muestra `Valor actual` por activo usando `positions[ticker].totalValue`, no `investedCost`, porque para vender interesa el valor de mercado actual.
 
 ## Consideraciones
 
