@@ -81,6 +81,41 @@ Devuelve el perfil publico del usuario autenticado a partir de `Authorization: B
 
 Devuelve la cartera del usuario autenticado a partir de `Authorization: Bearer <token>`.
 
+### `GET /users/me/history`
+
+Devuelve las ultimas transacciones del usuario autenticado.
+
+Requiere:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Respuesta orientativa:
+
+```json
+{
+  "items": [
+    {
+      "id": "abc123",
+      "type": "compra",
+      "ticker": "AAPL",
+      "quantity": 0.15,
+      "price": 300.15,
+      "total": 45.02,
+      "date": "2026-05-13T19:30:00+00:00"
+    }
+  ]
+}
+```
+
+El frontend lo usa para la pestaña `Historial`, donde se muestran mensajes como:
+
+```text
+Has comprado 0,15 acciones de AAPL a 300,15 $ por 45,02 $.
+Has vendido 0,03 acciones de AAPL a 301,10 $ por 9,03 $.
+```
+
 ### `GET /users/me/portfolio/gains`
 
 Devuelve las ganancias totales y diarias de la cartera del usuario autenticado.

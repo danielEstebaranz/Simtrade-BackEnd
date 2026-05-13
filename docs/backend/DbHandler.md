@@ -72,6 +72,8 @@ Actualiza saldo, cartera y registra la venta en `transacciones`.
 
 Consulta las ultimas transacciones del usuario.
 
+Actualmente devuelve una lista de diccionarios ya ordenada de mas reciente a mas antigua y limitada a 20 movimientos. Cada elemento incluye el `id` del documento para que el frontend pueda usarlo como clave estable.
+
 ### `obtener_transacciones_usuario(user_id)`
 
 Devuelve todas las transacciones del usuario para calcular ganancias.

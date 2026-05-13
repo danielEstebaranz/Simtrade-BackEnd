@@ -196,9 +196,19 @@ class DbHandler:
         try:
             docs = self.db.collection('transacciones')\
                         .where(filter=FieldFilter('usuario', '==', user_id))\
-                        .order_by('fecha', direction=firestore.Query.DESCENDING)\
-                        .limit(20).get()
-            return docs
+                        .get()
+            transacciones = []
+
+            for doc in docs:
+                transaccion = doc.to_dict()
+                transaccion['id'] = doc.id
+                transacciones.append(transaccion)
+
+            return sorted(
+                transacciones,
+                key=lambda transaccion: transaccion.get('fecha') or '',
+                reverse=True,
+            )[:20]
         except Exception as e:
             print(f"Error al consultar historial: {e}")
             return []
