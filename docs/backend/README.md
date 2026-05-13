@@ -9,7 +9,7 @@ Esta carpeta recoge la documentacion funcional del backend actual de Simtrade-Ba
 - [DbHandler.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md): conexion con Firestore, perfiles, cartera, saldo e historial.
 - [errores_migracion.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/errores_migracion.md): incidencias reales encontradas durante la migracion y como se resolvieron.
 - [firebase_auth_migracion.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/firebase_auth_migracion.md): resumen del cambio definitivo a Firebase Authentication.
-- [ganancias_cartera.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ganancias_cartera.md): calculo de ganancias totales y diarias de la cartera.
+- [ganancias_cartera.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ganancias_cartera.md): calculo de ganancias totales, ganancias diarias y valor actual por posicion de la cartera.
 - [glosario_tecnico.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/glosario_tecnico.md): explicacion de terminos tecnicos del backend y por que se usan.
 - [main.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/main.md): flujo principal de consola para registro, login, logout y operativa del usuario.
 - [worker_precios.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/worker_precios.md): sincronizacion periodica de precios desde Finnhub hacia Firestore.
@@ -50,7 +50,7 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 
 - `ApiHandler` consulta Finnhub y devuelve datos en un formato sencillo para el proyecto.
 - `DbHandler` encapsula Firestore y centraliza perfiles, cartera, saldo e historial.
-- `api_server.py` expone endpoints HTTP para autenticacion, cartera, tendencias y ganancias.
+- `api_server.py` expone endpoints HTTP para autenticacion, cartera, compra desde mercado, venta desde cartera, tendencias y ganancias.
 - `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos.
 - `main.py` mantiene una app de consola para pruebas y operativa local usando tambien Firebase Authentication.
 

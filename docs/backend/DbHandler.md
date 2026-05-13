@@ -62,6 +62,8 @@ Actualiza la coleccion `mercado` con precios sincronizados.
 
 Actualiza saldo, cartera y registra la compra en `transacciones`.
 
+En la web, este metodo se llama desde `POST /users/me/portfolio/buy`. El frontend envia dinero a invertir y el backend calcula las unidades antes de llamar a `realizar_compra`.
+
 ### `realizar_venta(...)`
 
 Actualiza saldo, cartera y registra la venta en `transacciones`.

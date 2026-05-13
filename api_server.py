@@ -52,6 +52,16 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+class BuyRequest(BaseModel):
+    amount: float
+    ticker: str
+
+
+class SellRequest(BaseModel):
+    percentage: float
+    ticker: str
+
+
 def resolve_email(email, username):
     email_value = (email or '').strip().lower()
     username_value = username.strip()
@@ -176,6 +186,7 @@ def get_my_portfolio_gains(authorization: str | None = Header(default=None)):
         'dailyGain': 0.0,
         'hasCostBasis': False,
         'investedCost': 0.0,
+        'positions': {},
         'source': 'yfinance',
         'totalGain': 0.0,
         'totalValue': 0.0,
@@ -197,12 +208,26 @@ def get_my_portfolio_gains(authorization: str | None = Header(default=None)):
 
         resumen['totalValue'] += valor_actual
         resumen['dailyGain'] += cantidad * (ultimo_precio - primer_precio)
+        resumen['positions'][ticker.upper()] = {
+            'costBasisSource': 'none',
+            'dailyGain': cantidad * (ultimo_precio - primer_precio),
+            'hasCostBasis': False,
+            'investedCost': 0.0,
+            'totalGain': 0.0,
+            'totalValue': valor_actual,
+        }
 
         if coste_abierto is not None:
             resumen['hasCostBasis'] = True
             resumen['costBasisSource'] = 'history'
             resumen['investedCost'] += coste_abierto
             resumen['totalGain'] += valor_actual - coste_abierto
+            resumen['positions'][ticker.upper()].update({
+                'costBasisSource': 'history',
+                'hasCostBasis': True,
+                'investedCost': coste_abierto,
+                'totalGain': valor_actual - coste_abierto,
+            })
 
     if not resumen['hasCostBasis'] and resumen['totalValue'] > 0:
         saldo_actual = float(user.get('saldo', INITIAL_BALANCE) or 0)
@@ -212,7 +237,95 @@ def get_my_portfolio_gains(authorization: str | None = Header(default=None)):
         resumen['investedCost'] = coste_estimado
         resumen['totalGain'] = resumen['totalValue'] - coste_estimado if coste_estimado > 0 else 0.0
 
+        for position in resumen['positions'].values():
+            peso = position['totalValue'] / resumen['totalValue']
+            coste_posicion = coste_estimado * peso
+            position['hasCostBasis'] = coste_posicion > 0
+            position['costBasisSource'] = 'balance_estimate' if coste_posicion > 0 else 'none'
+            position['investedCost'] = coste_posicion
+            position['totalGain'] = position['totalValue'] - coste_posicion if coste_posicion > 0 else 0.0
+
     return resumen
+
+
+@app.post('/users/me/portfolio/buy')
+def buy_asset(payload: BuyRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    ticker = payload.ticker.strip().upper()
+    amount = payload.amount
+
+    if not ticker:
+        raise HTTPException(status_code=400, detail='El ticker es obligatorio.')
+
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail='El importe debe ser mayor que 0.')
+
+    tendencia = market_api.obtener_tendencia(ticker, '1d')
+    if tendencia is None or not tendencia.get('points'):
+        raise HTTPException(status_code=404, detail='No hay precio real disponible para ese activo.')
+
+    price = tendencia['points'][-1]['price']
+    quantity = amount / price
+    success, balance = db.realizar_compra(ticker, quantity, price, user_id)
+
+    if not success:
+        raise HTTPException(status_code=400, detail='Saldo insuficiente para realizar la compra.')
+
+    return {
+        'message': 'Compra realizada correctamente.',
+        'operation': {
+            'ticker': ticker,
+            'quantity': quantity,
+            'price': price,
+            'total': amount,
+            'balance': balance,
+        },
+        'user': public_user(user_id),
+    }
+
+
+@app.post('/users/me/portfolio/sell')
+def sell_asset(payload: SellRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    ticker = payload.ticker.strip().upper()
+    percentage = payload.percentage
+
+    if not ticker:
+        raise HTTPException(status_code=400, detail='El ticker es obligatorio.')
+
+    if percentage <= 0 or percentage > 100:
+        raise HTTPException(status_code=400, detail='El porcentaje debe estar entre 0 y 100.')
+
+    user = public_user(user_id)
+    cartera = user.get('cartera', {})
+    current_quantity = float(cartera.get(ticker, 0) or 0)
+
+    if current_quantity <= 0:
+        raise HTTPException(status_code=400, detail='No tienes unidades de ese activo para vender.')
+
+    tendencia = market_api.obtener_tendencia(ticker, '1d')
+    if tendencia is None or not tendencia.get('points'):
+        raise HTTPException(status_code=404, detail='No hay precio real disponible para ese activo.')
+
+    price = tendencia['points'][-1]['price']
+    quantity = current_quantity * (percentage / 100)
+    success, balance = db.realizar_venta(ticker, quantity, price, user_id)
+
+    if not success:
+        raise HTTPException(status_code=400, detail='No se pudo realizar la venta.')
+
+    return {
+        'message': 'Venta realizada correctamente.',
+        'operation': {
+            'ticker': ticker,
+            'quantity': quantity,
+            'percentage': percentage,
+            'price': price,
+            'total': quantity * price,
+            'balance': balance,
+        },
+        'user': public_user(user_id),
+    }
 
 
 @app.get('/market/{ticker}/trend')
