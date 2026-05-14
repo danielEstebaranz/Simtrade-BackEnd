@@ -3,6 +3,12 @@ import hashlib
 from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+
+DEFAULT_SETTINGS = {
+    'theme': 'light',
+}
+
+
 class DbHandler:
     def __init__(self, certificado_path):
         try:
@@ -45,6 +51,7 @@ class DbHandler:
             'password': self._encriptar_password(password),
             'saldo': 1000.0,
             'cartera': {},
+            'settings': DEFAULT_SETTINGS.copy(),
             'fecha_creacion': firestore.SERVER_TIMESTAMP
         }
         user_ref.set(datos_usuario)
@@ -67,6 +74,7 @@ class DbHandler:
                 **datos_perfil,
                 'saldo': 1000.0,
                 'cartera': {},
+                'settings': DEFAULT_SETTINGS.copy(),
                 'fecha_creacion': firestore.SERVER_TIMESTAMP,
             })
 
@@ -99,16 +107,30 @@ class DbHandler:
                 datos_usuario['saldo'] = 1000.0
             if 'cartera' not in datos_usuario:
                 datos_usuario['cartera'] = {}
+            datos_usuario['settings'] = self._normalizar_settings(datos_usuario)
             return datos_usuario
         else:
             datos_iniciales = {
                 'username': user_id,
                 'password': '',
                 'saldo': 1000.0,
-                'cartera': {}
+                'cartera': {},
+                'settings': DEFAULT_SETTINGS.copy(),
             }
             user_ref.set(datos_iniciales)
             return datos_iniciales
+
+    def _normalizar_settings(self, user_data):
+        """Devuelve la configuracion publica con valores seguros por defecto."""
+        settings = user_data.get('settings') or {}
+        theme = str(settings.get('theme', DEFAULT_SETTINGS['theme'])).strip().lower()
+
+        if theme not in {'dark', 'light'}:
+            theme = DEFAULT_SETTINGS['theme']
+
+        return {
+            'theme': theme,
+        }
 
     def obtener_cartera(self, user_id):
         """Devuelve la cartera del usuario como lista simple de posiciones."""
@@ -132,7 +154,24 @@ class DbHandler:
             'email': user_data.get('email', ''),
             'saldo': user_data.get('saldo', 1000.0),
             'cartera': user_data.get('cartera', {}),
+            'settings': self._normalizar_settings(user_data),
         }
+
+    def obtener_configuracion(self, user_id):
+        """Lee las preferencias de configuracion del usuario."""
+        user_data = self.obtener_usuario(user_id)
+        return self._normalizar_settings(user_data)
+
+    def actualizar_tema(self, user_id, theme):
+        """Actualiza el modo visual elegido por el usuario."""
+        user_ref = self.db.collection('usuarios').document(user_id)
+        self.obtener_usuario(user_id)
+        settings = {
+            **DEFAULT_SETTINGS,
+            'theme': theme,
+        }
+        user_ref.update({'settings': settings})
+        return settings
 
     def _registrar_transaccion(self, user_id, tipo, ticker, cantidad, precio, total):
         """Guarda un registro de la operación en la colección 'transacciones'."""
@@ -150,6 +189,43 @@ class DbHandler:
             print(f"Movimiento registrado: {tipo} de {ticker}")
         except Exception as e:
             print(f"Error al escribir en historial: {e}")
+
+    def anadir_fondos(self, user_id, cantidad):
+        """Suma fondos al saldo disponible del usuario y registra el movimiento."""
+        user_ref = self.db.collection('usuarios').document(user_id)
+        user_data = self.obtener_usuario(user_id)
+        saldo_actual = float(user_data.get('saldo', 1000.0) or 0)
+        nuevo_saldo = round(saldo_actual + cantidad, 2)
+        user_ref.update({'saldo': nuevo_saldo})
+        self._registrar_transaccion(user_id, 'DEPOSITO', 'CASH', 1, cantidad, cantidad)
+        return nuevo_saldo
+
+    def eliminar_cuenta(self, user_id):
+        """Borra el perfil de Firestore y sus transacciones asociadas."""
+        transacciones = self.db.collection('transacciones')\
+                            .where(filter=FieldFilter('usuario', '==', user_id))\
+                            .get()
+        batch = self.db.batch()
+        operaciones_batch = 0
+        transacciones_borradas = 0
+
+        for transaccion in transacciones:
+            batch.delete(transaccion.reference)
+            operaciones_batch += 1
+            transacciones_borradas += 1
+
+            if operaciones_batch == 450:
+                batch.commit()
+                batch = self.db.batch()
+                operaciones_batch = 0
+
+        if operaciones_batch:
+            batch.commit()
+
+        self.db.collection('usuarios').document(user_id).delete()
+        return {
+            'deleted_transactions': transacciones_borradas,
+        }
 
     def realizar_compra(self, ticker, cantidad, precio_unidad, user_id="usuario_demo"):
         user_ref = self.db.collection('usuarios').document(user_id)

@@ -4,14 +4,14 @@ Archivo fuente: [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtra
 
 ## Proposito
 
-`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, cartera, compras, ventas, ganancias y tendencia de mercado para el frontend.
+`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, configuracion, fondos, borrado de cuenta, cartera, compras, ventas, ganancias y tendencia de mercado para el frontend.
 
 ## Responsabilidad dentro del sistema
 
 Este archivo recibe las peticiones HTTP del frontend y coordina tres piezas:
 
 - Firebase Authentication para registro e inicio de sesion
-- Firestore para perfil, cartera, saldo e historial
+- Firestore para perfil, configuracion, cartera, saldo e historial
 - `ApiHandler` para las tendencias historicas del mercado y valoracion de cartera
 
 ## Endpoints actuales
@@ -114,6 +114,131 @@ El frontend lo usa para la pestaña `Historial`, donde se muestran mensajes como
 ```text
 Has comprado 0,15 acciones de AAPL a 300,15 $ por 45,02 $.
 Has vendido 0,03 acciones de AAPL a 301,10 $ por 9,03 $.
+Has anadido 250 $ al saldo.
+```
+
+Los ingresos de fondos se guardan como `DEPOSITO` en Firestore y salen hacia el frontend como `type: "deposito"`.
+
+### `GET /users/me/settings`
+
+Devuelve la configuracion del usuario autenticado. Actualmente incluye el tema visual que usara el frontend:
+
+```json
+{
+  "settings": {
+    "theme": "light"
+  },
+  "user": {}
+}
+```
+
+`theme` puede ser:
+
+```text
+light -> modo claro
+dark  -> modo oscuro
+```
+
+El frontend usa este endpoint al abrir `/panel/configuracion`. Si el backend devuelve `dark`, Angular aplica el tema global mediante `ThemeService`.
+
+### `PATCH /users/me/settings`
+
+Actualiza la configuracion del usuario autenticado.
+
+Requiere:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Recibe:
+
+```json
+{
+  "theme": "dark"
+}
+```
+
+Tambien acepta los alias `oscuro` y `claro`, pero guarda siempre `dark` o `light`.
+
+Respuesta orientativa:
+
+```json
+{
+  "message": "Configuracion actualizada correctamente.",
+  "settings": {
+    "theme": "dark"
+  },
+  "user": {}
+}
+```
+
+El endpoint devuelve tambien `user` actualizado para que el frontend pueda sincronizar `AuthService` y conservar `settings.theme` en la sesion local.
+
+### `POST /users/me/funds`
+
+Anade fondos al saldo disponible del usuario autenticado.
+
+Requiere:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Recibe la cantidad elegida por el usuario:
+
+```json
+{
+  "amount": 250
+}
+```
+
+Funcionamiento:
+
+1. Valida token de Firebase.
+2. Valida que la cantidad sea mayor que 0.
+3. Limita cada ingreso a un maximo de `100000`.
+4. Suma el importe al saldo.
+5. Registra el movimiento como `DEPOSITO` en el historial.
+6. Devuelve usuario actualizado.
+
+Respuesta orientativa:
+
+```json
+{
+  "message": "Fondos anadidos correctamente.",
+  "operation": {
+    "amount": 250,
+    "balance": 1250
+  },
+  "user": {}
+}
+```
+
+### `DELETE /users/me`
+
+Borra la cuenta del usuario autenticado.
+
+Requiere:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Funcionamiento:
+
+1. Valida token de Firebase.
+2. Borra el usuario en Firebase Authentication.
+3. Borra el perfil `usuarios/{uid}` en Firestore.
+4. Borra las transacciones asociadas al usuario.
+
+Respuesta orientativa:
+
+```json
+{
+  "message": "Cuenta borrada correctamente.",
+  "deleted_transactions": 12
+}
 ```
 
 ### `GET /users/me/portfolio/gains`
@@ -294,7 +419,7 @@ Valida un `ID token` recibido en la cabecera `Authorization`.
 
 Calcula el coste invertido todavia abierto por activo. Usa compras y ventas para saber cuanto dinero queda invertido en las posiciones actuales.
 
-Si no hay historial valido, el endpoint de ganancias usa una estimacion basada en saldo inicial de 1000 $ menos saldo actual.
+Si no hay historial valido, el endpoint de ganancias usa una estimacion basada en saldo inicial de 1000 $ mas los depositos registrados menos saldo actual.
 
 ### `BuyRequest`
 
@@ -314,6 +439,24 @@ Modelo Pydantic para la venta desde cartera. Usa:
 
 Se eligio `percentage` porque en cartera el usuario reduce una posicion existente. El backend calcula las unidades y el importe internamente.
 
+### `SettingsRequest`
+
+Modelo Pydantic para la configuracion. Usa:
+
+- `theme`
+
+Se guarda en Firestore dentro del perfil del usuario como `settings.theme`.
+
+### `AddFundsRequest`
+
+Modelo Pydantic para anadir fondos. Usa:
+
+- `amount`
+
+El backend redondea a dos decimales y registra el ingreso como `DEPOSITO` para que el saldo sea auditable.
+
+El frontend consume este endpoint desde `ConfiguracionSection`, no desde mercado, porque anadir saldo es una operacion de cuenta.
+
 ## Como funciona a nivel de seguridad
 
 - El registro y el login reales ya no usan la coleccion `usuarios` para validar contrasenas.
@@ -332,6 +475,8 @@ Se eligio `percentage` porque en cartera el usuario reduce una posicion existent
 - La compra se hace desde mercado porque el usuario ya esta viendo precio y tendencia del activo.
 - La venta se hace desde cartera porque el usuario ya esta viendo sus posiciones reales.
 - El frontend muestra `Valor actual` por activo usando `positions[ticker].totalValue`, no `investedCost`, porque para vender interesa el valor de mercado actual.
+- La configuracion de tema se expone desde backend para que el modo claro/oscuro no dependa solo del navegador local.
+- Los depositos se tratan como transacciones porque afectan al saldo y tambien al fallback de ganancias basado en saldo.
 
 ## Consideraciones
 
@@ -339,3 +484,4 @@ Se eligio `percentage` porque en cartera el usuario reduce una posicion existent
 - El backend necesita `FIREBASE_WEB_API_KEY` para el login contra Firebase Auth.
 - Esa clave no debe quedar hardcodeada en el repositorio. Debe vivir en `.env` o en el sistema de secretos del entorno.
 - La documentacion interactiva de FastAPI sigue disponible en `/docs`.
+- El borrado de cuenta es irreversible: borra Firebase Authentication, perfil de Firestore y transacciones. Debe probarse solo con cuentas de prueba.
