@@ -1,4 +1,5 @@
 import os
+import math
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query
@@ -17,6 +18,7 @@ HOST = os.getenv('SIMTRADE_API_HOST', '127.0.0.1')
 PORT = int(os.getenv('SIMTRADE_API_PORT', '8000'))
 FIREBASE_WEB_API_KEY = os.getenv('FIREBASE_WEB_API_KEY', '').strip()
 INITIAL_BALANCE = 1000.0
+MAX_FUNDS_DEPOSIT = 100000.0
 ALLOWED_ORIGINS = [
     'http://127.0.0.1:4200',
     'http://localhost:4200',
@@ -32,7 +34,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=['POST', 'GET'],
+    allow_methods=['POST', 'GET', 'PATCH', 'DELETE'],
     allow_headers=['*'],
 )
 
@@ -60,6 +62,14 @@ class BuyRequest(BaseModel):
 class SellRequest(BaseModel):
     percentage: float
     ticker: str
+
+
+class SettingsRequest(BaseModel):
+    theme: str
+
+
+class AddFundsRequest(BaseModel):
+    amount: float
 
 
 def resolve_email(email, username):
@@ -109,6 +119,42 @@ def verify_current_user(authorization):
 
 def public_user(user_id):
     return db.obtener_perfil_publico(user_id)
+
+
+def normalize_theme(theme):
+    theme_value = (theme or '').strip().lower()
+    aliases = {
+        'dark': 'dark',
+        'oscuro': 'dark',
+        'light': 'light',
+        'claro': 'light',
+    }
+
+    if theme_value not in aliases:
+        raise HTTPException(
+            status_code=400,
+            detail='El tema debe ser dark/light u oscuro/claro.',
+        )
+
+    return aliases[theme_value]
+
+
+def normalize_funds_amount(amount):
+    if not math.isfinite(amount):
+        raise HTTPException(status_code=400, detail='La cantidad debe ser un numero valido.')
+
+    normalized_amount = round(float(amount), 2)
+
+    if normalized_amount <= 0:
+        raise HTTPException(status_code=400, detail='La cantidad debe ser mayor que 0.')
+
+    if normalized_amount > MAX_FUNDS_DEPOSIT:
+        raise HTTPException(
+            status_code=400,
+            detail=f'La cantidad maxima por ingreso es {MAX_FUNDS_DEPOSIT:.2f}.',
+        )
+
+    return normalized_amount
 
 
 def firebase_sign_in(email, password):
@@ -184,6 +230,65 @@ def get_my_history(authorization: str | None = Header(default=None)):
     }
 
 
+@app.get('/users/me/settings')
+def get_my_settings(authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+
+    return {
+        'settings': db.obtener_configuracion(user_id),
+        'user': public_user(user_id),
+    }
+
+
+@app.patch('/users/me/settings')
+def update_my_settings(payload: SettingsRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    theme = normalize_theme(payload.theme)
+    settings = db.actualizar_tema(user_id, theme)
+
+    return {
+        'message': 'Configuracion actualizada correctamente.',
+        'settings': settings,
+        'user': public_user(user_id),
+    }
+
+
+@app.post('/users/me/funds')
+def add_my_funds(payload: AddFundsRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    amount = normalize_funds_amount(payload.amount)
+    balance = db.anadir_fondos(user_id, amount)
+
+    return {
+        'message': 'Fondos anadidos correctamente.',
+        'operation': {
+            'amount': amount,
+            'balance': balance,
+        },
+        'user': public_user(user_id),
+    }
+
+
+@app.delete('/users/me')
+def delete_my_account(authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+
+    try:
+        firebase_auth.delete_user(user_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f'No se pudo borrar la cuenta en Firebase Authentication: {exc}',
+        )
+
+    delete_result = db.eliminar_cuenta(user_id)
+
+    return {
+        'message': 'Cuenta borrada correctamente.',
+        **delete_result,
+    }
+
+
 @app.get('/users/me/portfolio/gains')
 def get_my_portfolio_gains(authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
@@ -241,7 +346,8 @@ def get_my_portfolio_gains(authorization: str | None = Header(default=None)):
 
     if not resumen['hasCostBasis'] and resumen['totalValue'] > 0:
         saldo_actual = float(user.get('saldo', INITIAL_BALANCE) or 0)
-        coste_estimado = max(0.0, INITIAL_BALANCE - saldo_actual)
+        saldo_base = INITIAL_BALANCE + calcular_fondos_anadidos(transacciones)
+        coste_estimado = max(0.0, saldo_base - saldo_actual)
         resumen['hasCostBasis'] = coste_estimado > 0
         resumen['costBasisSource'] = 'balance_estimate' if coste_estimado > 0 else 'none'
         resumen['investedCost'] = coste_estimado
@@ -385,6 +491,18 @@ def calcular_costes_abiertos(transacciones):
         for ticker, coste in costes.items()
         if cantidades.get(ticker, 0.0) > 0 and coste > 0
     }
+
+
+def calcular_fondos_anadidos(transacciones):
+    total = 0.0
+
+    for transaccion in transacciones:
+        tipo = str(transaccion.get('tipo', '')).upper()
+
+        if tipo == 'DEPOSITO':
+            total += float(transaccion.get('total_dinero', 0) or 0)
+
+    return total
 
 
 def public_transaction(transaccion):

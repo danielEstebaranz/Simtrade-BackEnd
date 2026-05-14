@@ -320,6 +320,41 @@ Despues de crear el usuario, el backend llama tambien a `firebase_sign_in(email,
 
 Asi el registro y el login dejan la misma sesion preparada para comprar, vender y consultar cartera.
 
+### El frontend de configuracion necesitaba endpoints reales
+
+#### Causa
+
+La pantalla `/panel/configuracion` del frontend ya existia, pero para que funcionara necesitaba contratos HTTP claros para:
+
+- leer y cambiar tema
+- anadir fondos
+- borrar cuenta
+
+#### Solucion
+
+El backend expone:
+
+```text
+GET /users/me/settings
+PATCH /users/me/settings
+POST /users/me/funds
+DELETE /users/me
+```
+
+Todos usan `Authorization: Bearer <idToken>` y devuelven JSON pensado para que Angular actualice `AuthService`.
+
+### Depositos confundidos con compras en el historial
+
+#### Causa
+
+Al anadir fondos, `DbHandler` registra `DEPOSITO`. Si el frontend no lo distingue, puede tratarlo como una compra generica.
+
+#### Solucion
+
+El backend mantiene `type: "deposito"` en la respuesta de historial y el frontend lo muestra como ingreso de saldo.
+
+Esto conserva trazabilidad del saldo y evita mezclar depositos con operaciones de mercado.
+
 ## Librerias usadas y motivo
 
 ### FastAPI
@@ -345,6 +380,10 @@ Se mantiene para precio actual y worker de mercado.
 ### yfinance
 
 Se usa para obtener historicos reales de mercado. Es la libreria que alimenta la grafica de cartera.
+
+### requests
+
+Se usa para llamar al endpoint oficial de Firebase Authentication `signInWithPassword` desde el backend. Esa llamada necesita `FIREBASE_WEB_API_KEY`.
 
 ## Metodologia seguida
 
@@ -417,6 +456,10 @@ Esto es valido para el proyecto actual, pero no es tan exacto como guardar coste
 El precio de mercado se consulta en distintas peticiones. Una pantalla puede mostrar un valor y la venta puede ejecutarse unos segundos despues con otro precio.
 
 Esto es correcto para datos reales, pero a futuro se podria mostrar una confirmacion con el precio exacto justo antes de vender.
+
+### Borrado irreversible de cuenta
+
+`DELETE /users/me` borra el usuario de Firebase Authentication, el perfil de Firestore y las transacciones. En frontend se pide escribir `BORRAR`, pero a nivel de backend la proteccion real es exigir un `idToken` valido.
 
 ### No hay tests automatizados
 
@@ -492,6 +535,45 @@ curl.exe -s -i "http://127.0.0.1:8000/users/me/portfolio/sell" -H "Authorization
 ```
 
 Si el usuario tiene unidades de ese activo, debe devolver usuario actualizado y datos de la venta.
+
+### Como compruebo la configuracion
+
+Hace falta un `idToken` obtenido en login:
+
+```powershell
+curl.exe -s -i "http://127.0.0.1:8000/users/me/settings" -H "Authorization: Bearer <idToken>"
+```
+
+Para cambiar tema:
+
+```powershell
+curl.exe -s -i -X PATCH "http://127.0.0.1:8000/users/me/settings" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"theme\":\"dark\"}"
+```
+
+### Como compruebo anadir fondos
+
+```powershell
+curl.exe -s -i -X POST "http://127.0.0.1:8000/users/me/funds" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"amount\":250}"
+```
+
+Debe devolver `operation.amount`, `operation.balance` y `user` actualizado.
+
+### Como compruebo borrar cuenta
+
+Usar solo con cuentas de prueba:
+
+```powershell
+curl.exe -s -i -X DELETE "http://127.0.0.1:8000/users/me" -H "Authorization: Bearer <idToken>"
+```
+
+Debe devolver:
+
+```json
+{
+  "message": "Cuenta borrada correctamente.",
+  "deleted_transactions": 0
+}
+```
 
 ### Por que el frontend muestra `Valor actual`
 

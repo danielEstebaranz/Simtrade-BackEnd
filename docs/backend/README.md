@@ -49,15 +49,16 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 ## Resumen de arquitectura
 
 - `ApiHandler` consulta Finnhub y devuelve datos en un formato sencillo para el proyecto.
-- `DbHandler` encapsula Firestore y centraliza perfiles, cartera, saldo e historial.
-- `api_server.py` expone endpoints HTTP para autenticacion, cartera, compra desde mercado, venta desde cartera, tendencias y ganancias.
+- `DbHandler` encapsula Firestore y centraliza perfiles, configuracion, cartera, saldo e historial.
+- `api_server.py` expone endpoints HTTP para autenticacion, configuracion, fondos, borrado de cuenta, cartera, compra desde mercado, venta desde cartera, tendencias y ganancias.
+- El frontend consume la configuracion desde `/panel/configuracion` para modo claro/oscuro, anadir fondos y borrar cuenta.
 - `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos.
 - `main.py` mantiene una app de consola para pruebas y operativa local usando tambien Firebase Authentication.
 
 ## Decisiones de diseno
 
 - Se ha separado el acceso a Finnhub en `ApiHandler` para no mezclar llamadas externas con logica de base de datos o interfaz.
-- Se ha concentrado Firestore en `DbHandler` para tener un unico punto de acceso a usuarios, mercado e historial.
+- Se ha concentrado Firestore en `DbHandler` para tener un unico punto de acceso a usuarios, configuracion, saldo, mercado e historial.
 - Se ha creado `api_server.py` con FastAPI para tener una API REST sencilla, legible y mas comoda de consumir desde el frontend.
 - La autenticacion queda delegada en Firebase Authentication, mientras Firestore guarda solo el perfil y los datos de negocio.
 - La consola y la API usan el mismo criterio de autenticacion para evitar dobles sistemas y errores de compatibilidad entre web y terminal.
