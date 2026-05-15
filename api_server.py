@@ -72,6 +72,15 @@ class AddFundsRequest(BaseModel):
     amount: float
 
 
+class ResetPortfolioRequest(BaseModel):
+    confirmation: str
+    password: str
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
 def resolve_email(email, username):
     email_value = (email or '').strip().lower()
     username_value = username.strip()
@@ -269,10 +278,47 @@ def add_my_funds(payload: AddFundsRequest, authorization: str | None = Header(de
     }
 
 
-@app.delete('/users/me')
-def delete_my_account(authorization: str | None = Header(default=None)):
+@app.post('/users/me/funds/withdraw')
+def withdraw_my_funds(payload: AddFundsRequest, authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
+    amount = normalize_funds_amount(payload.amount)
+    success, balance = db.retirar_fondos(user_id, amount)
 
+    if not success:
+        raise HTTPException(status_code=400, detail='No tienes saldo suficiente para retirar esa cantidad.')
+
+    return {
+        'message': 'Fondos retirados correctamente.',
+        'operation': {
+            'amount': amount,
+            'balance': balance,
+        },
+        'user': public_user(user_id),
+    }
+
+
+def verify_account_password(user_id, password, action='continuar'):
+    user = public_user(user_id)
+    email = user.get('email') or user.get('username')
+    clean_password = password.strip()
+
+    if not email or '@' not in email:
+        raise HTTPException(status_code=400, detail='No se encontro un email valido para verificar la cuenta.')
+
+    if not clean_password:
+        raise HTTPException(status_code=400, detail=f'La contrasena es obligatoria para {action}.')
+
+    firebase_session = firebase_sign_in(email, clean_password)
+
+    if firebase_session.get('localId') != user_id:
+        raise HTTPException(status_code=401, detail='La contrasena no corresponde a esta cuenta.')
+
+
+def verify_delete_password(user_id, password):
+    verify_account_password(user_id, password, 'borrar la cuenta')
+
+
+def delete_verified_account(user_id):
     try:
         firebase_auth.delete_user(user_id)
     except Exception as exc:
@@ -287,6 +333,41 @@ def delete_my_account(authorization: str | None = Header(default=None)):
         'message': 'Cuenta borrada correctamente.',
         **delete_result,
     }
+
+
+@app.post('/users/me/portfolio/reset')
+def reset_my_portfolio(payload: ResetPortfolioRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+
+    if payload.confirmation.strip() != 'REINICIAR':
+        raise HTTPException(status_code=400, detail='Escribe REINICIAR en mayusculas para confirmar.')
+
+    verify_account_password(user_id, payload.password, 'reiniciar la cartera')
+    balance = db.reiniciar_cartera(user_id, INITIAL_BALANCE)
+
+    return {
+        'message': 'Cartera reiniciada correctamente.',
+        'operation': {
+            'balance': balance,
+        },
+        'user': public_user(user_id),
+    }
+
+
+@app.post('/users/me/delete')
+def delete_my_account_with_password(payload: DeleteAccountRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    verify_delete_password(user_id, payload.password)
+
+    return delete_verified_account(user_id)
+
+
+@app.delete('/users/me')
+def delete_my_account(payload: DeleteAccountRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    verify_delete_password(user_id, payload.password)
+
+    return delete_verified_account(user_id)
 
 
 @app.get('/users/me/portfolio/gains')
@@ -474,6 +555,11 @@ def calcular_costes_abiertos(transacciones):
             costes[ticker] = costes.get(ticker, 0.0) + cantidad * precio
             continue
 
+        if tipo == 'REINICIO':
+            cantidades = {}
+            costes = {}
+            continue
+
         if tipo == 'VENTA':
             cantidad_actual = cantidades.get(ticker, 0.0)
             coste_actual = costes.get(ticker, 0.0)
@@ -501,6 +587,14 @@ def calcular_fondos_anadidos(transacciones):
 
         if tipo == 'DEPOSITO':
             total += float(transaccion.get('total_dinero', 0) or 0)
+            continue
+
+        if tipo == 'RETIRADA':
+            total -= float(transaccion.get('total_dinero', 0) or 0)
+            continue
+
+        if tipo == 'REINICIO':
+            total = 0.0
 
     return total
 
