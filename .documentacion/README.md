@@ -12,6 +12,37 @@ api_server.py
 
 La API esta hecha con FastAPI y expone endpoints HTTP para que Angular no tenga que llamar directamente a Firestore ni a funciones de consola.
 
+## Endpoints de mercado
+
+```text
+GET /market/assets
+GET /market/statistics
+```
+
+### `GET /market/assets`
+
+Devuelve el catalogo de activos disponibles para que el frontend no tenga que mantener su propia lista principal.
+
+La lista comun vive en:
+
+```text
+services/market_assets.py
+```
+
+La usan tanto `api_server.py` como `services/worker_precios.py`, de modo que la API y el worker trabajan con los mismos tickers.
+
+### `GET /market/statistics`
+
+Calcula rendimientos diarios y semanales de los activos disponibles y devuelve:
+
+- mejor activo diario
+- peor activo diario
+- mejor activo semanal
+- peor activo semanal
+- listados completos por rango
+
+Esto permite que la pestaña `Estadisticas` del frontend solo tenga que representar los datos.
+
 ## Endpoints de configuracion y cuenta
 
 ```text
@@ -132,6 +163,14 @@ Se reforzo el backend para verificar la contrasena con Firebase Authentication a
 ### Backend antiguo en puerto 8000
 
 Si un proceso viejo sigue usando `127.0.0.1:8000`, el frontend puede llamar a una version antigua de la API. Cuando se cambian endpoints hay que parar el proceso antiguo y reiniciar `api_server.py`.
+
+En esta sesion se vio concretamente al crear `/market/assets` y `/market/statistics`: el frontend devolvia `404` hasta que se paro el proceso viejo y se arranco la API nueva.
+
+### Activos duplicados entre frontend y backend
+
+Antes la lista de activos podia estar repetida en varios sitios. Al anadir nuevos activos, el worker podia conocerlos pero Mercado no.
+
+Se creo `services/market_assets.py` como fuente unica en backend y el frontend paso a pedir la lista mediante `/market/assets`.
 
 ## Comprobacion
 

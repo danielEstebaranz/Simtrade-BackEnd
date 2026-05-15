@@ -11,6 +11,7 @@ import uvicorn
 
 from services.Api_Handler import ApiHandler
 from services.db_handler import DbHandler
+from services.market_assets import MARKET_ASSETS
 
 load_dotenv()
 
@@ -535,6 +536,56 @@ def get_market_trend(ticker: str, range: str = Query('1d')):
         raise HTTPException(status_code=404, detail='No hay datos de tendencia para ese activo.')
 
     return tendencia
+
+
+@app.get('/market/assets')
+def get_market_assets():
+    return {
+        'items': MARKET_ASSETS,
+    }
+
+
+@app.get('/market/statistics')
+def get_market_statistics():
+    ranges = {
+        'daily': '1d',
+        'weekly': '1w',
+    }
+    statistics = {}
+
+    for label, trend_range in ranges.items():
+        items = []
+
+        for asset in MARKET_ASSETS:
+            tendencia = market_api.obtener_tendencia(asset['ticker'], trend_range)
+            puntos = tendencia.get('points', []) if tendencia else []
+
+            if len(puntos) < 2:
+                continue
+
+            first = float(puntos[0]['price'])
+            last = float(puntos[-1]['price'])
+            change = last - first
+            change_percent = 0.0 if first == 0 else (change / first) * 100
+            items.append({
+                'ticker': asset['ticker'],
+                'name': asset['name'],
+                'change': change,
+                'changePercent': change_percent,
+                'lastPrice': last,
+            })
+
+        ordered = sorted(items, key=lambda item: item['changePercent'], reverse=True)
+        statistics[label] = {
+            'best': ordered[0] if ordered else None,
+            'worst': ordered[-1] if ordered else None,
+            'items': ordered,
+        }
+
+    return {
+        'source': 'yfinance',
+        **statistics,
+    }
 
 
 def calcular_costes_abiertos(transacciones):

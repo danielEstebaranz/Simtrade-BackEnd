@@ -3,6 +3,7 @@ import time
 from dotenv import load_dotenv
 from Api_Handler import ApiHandler
 from db_handler import DbHandler
+from market_assets import market_tickers
 
 load_dotenv()
 
@@ -10,7 +11,7 @@ def ejecutar_worker():
     api = ApiHandler(os.getenv('FINNHUB_API_KEY'))
     db = DbHandler(os.getenv('FIREBASE_JSON_PATH'))
     
-    activos = ['AAPL', 'TSLA', 'AMZN', 'MSFT', 'BINANCE:BTCUSDT']
+    activos = market_tickers()
     INTERVALO = 60 # 1 minuto
 
     # Solo imprimimos esto al arrancar
