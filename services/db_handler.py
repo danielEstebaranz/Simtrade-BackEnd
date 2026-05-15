@@ -200,6 +200,31 @@ class DbHandler:
         self._registrar_transaccion(user_id, 'DEPOSITO', 'CASH', 1, cantidad, cantidad)
         return nuevo_saldo
 
+    def retirar_fondos(self, user_id, cantidad):
+        """Resta fondos del saldo disponible del usuario y registra el movimiento."""
+        user_ref = self.db.collection('usuarios').document(user_id)
+        user_data = self.obtener_usuario(user_id)
+        saldo_actual = float(user_data.get('saldo', 1000.0) or 0)
+
+        if cantidad > saldo_actual:
+            return False, saldo_actual
+
+        nuevo_saldo = round(saldo_actual - cantidad, 2)
+        user_ref.update({'saldo': nuevo_saldo})
+        self._registrar_transaccion(user_id, 'RETIRADA', 'CASH', 1, cantidad, cantidad)
+        return True, nuevo_saldo
+
+    def reiniciar_cartera(self, user_id, saldo_inicial=1000.0):
+        """Deja la cartera en el estado inicial y registra el reinicio."""
+        user_ref = self.db.collection('usuarios').document(user_id)
+        self.obtener_usuario(user_id)
+        user_ref.update({
+            'saldo': float(saldo_inicial),
+            'cartera': {},
+        })
+        self._registrar_transaccion(user_id, 'REINICIO', 'CASH', 1, saldo_inicial, 0)
+        return float(saldo_inicial)
+
     def eliminar_cuenta(self, user_id):
         """Borra el perfil de Firestore y sus transacciones asociadas."""
         transacciones = self.db.collection('transacciones')\
