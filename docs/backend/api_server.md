@@ -215,6 +215,49 @@ Respuesta orientativa:
 }
 ```
 
+### `POST /users/me/funds/withdraw`
+
+Retira fondos del saldo disponible del usuario autenticado.
+
+Recibe:
+
+```json
+{
+  "amount": 250
+}
+```
+
+Reglas:
+
+- la cantidad debe ser mayor que 0
+- no puede superar el maximo por operacion
+- no puede superar el saldo disponible
+
+Si todo es correcto, registra `RETIRADA` en el historial y devuelve el usuario actualizado.
+
+### `POST /users/me/portfolio/reset`
+
+Reinicia la cartera del usuario autenticado.
+
+Recibe:
+
+```json
+{
+  "confirmation": "REINICIAR",
+  "password": "contrasena_actual"
+}
+```
+
+El backend exige token valido, palabra exacta `REINICIAR` y contrasena correcta antes de:
+
+- dejar el saldo en `1000`
+- vaciar la cartera
+- registrar la operacion `REINICIO`
+
+### `POST /users/me/delete`
+
+Borra la cuenta verificando antes la contrasena actual. Se usa desde el frontend porque permite enviar un body claro con la password.
+
 ### `DELETE /users/me`
 
 Borra la cuenta del usuario autenticado.
@@ -477,6 +520,7 @@ El frontend consume este endpoint desde `ConfiguracionSection`, no desde mercado
 - El frontend muestra `Valor actual` por activo usando `positions[ticker].totalValue`, no `investedCost`, porque para vender interesa el valor de mercado actual.
 - La configuracion de tema se expone desde backend para que el modo claro/oscuro no dependa solo del navegador local.
 - Los depositos se tratan como transacciones porque afectan al saldo y tambien al fallback de ganancias basado en saldo.
+- Las retiradas y los reinicios tambien se registran como transacciones porque afectan al saldo y al calculo de ganancias.
 
 ## Consideraciones
 

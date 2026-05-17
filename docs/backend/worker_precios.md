@@ -34,12 +34,14 @@ Inicializa los servicios, define la lista de activos a sincronizar y entra en un
 1. Carga variables de entorno con `load_dotenv()`.
 2. Crea una instancia de `ApiHandler` con la API key de Finnhub.
 3. Crea una instancia de `DbHandler` con la ruta al certificado de Firebase.
-4. Define la lista de activos a consultar:
+4. Carga la lista comun de activos desde `services/market_assets.py`:
    - `AAPL`
    - `TSLA`
    - `AMZN`
    - `MSFT`
    - `BINANCE:BTCUSDT`
+   - `GOOGL`
+   - `NVD`
 5. Define un intervalo de 60 segundos.
 6. En cada iteracion:
    - consulta el precio de cada activo con `api.obtener_precio_actual(ticker)`
@@ -73,3 +75,4 @@ if __name__ == "__main__":
 - Se usa un bucle simple con `time.sleep(60)` porque es suficiente para este proyecto y es mucho mas facil de entender que un sistema de colas o tareas programadas.
 - Se escriben los precios en Firestore para que tanto la consola como el frontend lean una fuente comun ya procesada.
 - No se registra historico de precios porque el objetivo actual es mostrar el precio vigente para la simulacion, no construir una analitica temporal avanzada.
+- La lista de tickers no se duplica aqui; se reutiliza `market_tickers()` para que API y worker compartan el mismo catalogo.

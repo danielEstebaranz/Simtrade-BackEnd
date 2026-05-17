@@ -131,6 +131,8 @@ El backend consulta actualmente estos tickers:
 - `AMZN`
 - `MSFT`
 - `BINANCE:BTCUSDT`
+- `GOOGL`
+- `NVD`
 
 ## Consideraciones
 

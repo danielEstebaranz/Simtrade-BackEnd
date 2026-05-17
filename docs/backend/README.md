@@ -51,7 +51,8 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 - `ApiHandler` consulta Finnhub y devuelve datos en un formato sencillo para el proyecto.
 - `DbHandler` encapsula Firestore y centraliza perfiles, configuracion, cartera, saldo e historial.
 - `api_server.py` expone endpoints HTTP para autenticacion, configuracion, fondos, borrado de cuenta, cartera, compra desde mercado, venta desde cartera, tendencias y ganancias.
-- El frontend consume la configuracion desde `/panel/configuracion` para modo claro/oscuro, anadir fondos y borrar cuenta.
+- El frontend consume la configuracion desde `/panel/configuracion` para modo claro/oscuro, anadir fondos, quitar fondos, reiniciar cartera y borrar cuenta.
+- El asistente IA de soporte se integra fuera de este backend mediante n8n; la API Python no participa en ese flujo.
 - `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos.
 - `main.py` mantiene una app de consola para pruebas y operativa local usando tambien Firebase Authentication.
 
