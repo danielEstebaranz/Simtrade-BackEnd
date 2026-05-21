@@ -5,10 +5,10 @@ Este repositorio contiene el backend del proyecto SimTrade, un TFG orientado a s
 ## Componentes principales
 
 - [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py:1): aplicacion de consola para registro, login, cartera, compras, ventas e historial.
-- [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/api_server.py:1): API HTTP para autenticacion, configuracion, fondos, cartera, historico y mercado desde el frontend.
+- [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/api_server.py:1): API HTTP para autenticacion, configuracion, fondos, bonos, cartera, historico y mercado desde el frontend.
 - [services/worker_precios.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/worker_precios.py:1): sincronizador de precios desde Finnhub hacia Firestore.
 - [services/Api_Handler.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/Api_Handler.py:1): acceso a Finnhub para precio actual y yfinance para historicos.
-- [services/db_handler.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/db_handler.py:1): acceso a Firestore y logica de usuarios.
+- [services/db_handler.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/services/db_handler.py:1): acceso a Firestore y logica de usuarios, saldo, cartera, historial y bonos.
 
 ## Dependencias
 
@@ -28,6 +28,16 @@ Instaladas desde [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Si
 - `FIREBASE_JSON_PATH`
 - `SIMTRADE_API_HOST`
 - `SIMTRADE_API_PORT`
+- `FIREBASE_WEB_API_KEY`
+
+## Funcionalidades actuales
+
+- Registro e inicio de sesion con Firebase Authentication.
+- Perfil, saldo, cartera e historial persistidos en Firestore.
+- Compra y venta de activos con precio real consultado desde el backend.
+- Gestion de configuracion: tema claro/oscuro, fondos, retirada, reinicio y borrado de cuenta.
+- Bonos temporales: el usuario invierte saldo en un bono, espera 60 segundos y recibe principal mas rentabilidad cuando vence.
+- Historial de movimientos: compras, ventas, depositos, retiradas, reinicio, inversion en bonos y cierre de bonos.
 
 ## Documentacion
 

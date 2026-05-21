@@ -4,14 +4,14 @@ Archivo fuente: [api_server.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtra
 
 ## Proposito
 
-`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, configuracion, fondos, borrado de cuenta, cartera, compras, ventas, ganancias y tendencia de mercado para el frontend.
+`api_server.py` expone la API REST principal del backend. Gestiona autenticacion contra Firebase Authentication, consulta de perfil, configuracion, fondos, bonos, borrado de cuenta, cartera, compras, ventas, ganancias y tendencia de mercado para el frontend.
 
 ## Responsabilidad dentro del sistema
 
 Este archivo recibe las peticiones HTTP del frontend y coordina tres piezas:
 
 - Firebase Authentication para registro e inicio de sesion
-- Firestore para perfil, configuracion, cartera, saldo e historial
+- Firestore para perfil, configuracion, bonos, cartera, saldo e historial
 - `ApiHandler` para las tendencias historicas del mercado y valoracion de cartera
 
 ## Endpoints actuales
@@ -115,9 +115,11 @@ El frontend lo usa para la pestaña `Historial`, donde se muestran mensajes como
 Has comprado 0,15 acciones de AAPL a 300,15 $ por 45,02 $.
 Has vendido 0,03 acciones de AAPL a 301,10 $ por 9,03 $.
 Has anadido 250 $ al saldo.
+Has invertido 1000 $ en un bono de AMZN.
+Ha finalizado tu bono de AMZN y has recibido 1020 $.
 ```
 
-Los ingresos de fondos se guardan como `DEPOSITO` en Firestore y salen hacia el frontend como `type: "deposito"`.
+Los ingresos de fondos se guardan como `DEPOSITO`, las inversiones de bonos como `BONO_INVERSION` y las liquidaciones como `BONO_CIERRE`. En la respuesta salen en minusculas para Angular: `deposito`, `bono_inversion` y `bono_cierre`.
 
 ### `GET /users/me/settings`
 
@@ -193,6 +195,8 @@ Recibe la cantidad elegida por el usuario:
 }
 ```
 
+Tambien admite `cantidad` o `value` para evitar fallos si el frontend manda el valor manual con otro nombre de campo.
+
 Funcionamiento:
 
 1. Valida token de Firebase.
@@ -235,6 +239,104 @@ Reglas:
 
 Si todo es correcto, registra `RETIRADA` en el historial y devuelve el usuario actualizado.
 
+### `GET /bonds/offers`
+
+Devuelve las ofertas de bonos disponibles. No modifica saldo ni requiere token.
+
+Respuesta orientativa:
+
+```json
+{
+  "items": [
+    {
+      "ticker": "AMZN",
+      "name": "Amazon",
+      "return_percent": 2.0,
+      "duration_seconds": 60
+    }
+  ]
+}
+```
+
+### `GET /users/me/bonds`
+
+Devuelve los bonos del usuario autenticado. Antes de responder liquida automaticamente los bonos activos que ya hayan cumplido su minuto.
+
+`secondsRemaining` se calcula con redondeo hacia arriba para evitar que el frontend muestre `0` antes de que el backend pueda liquidar realmente el bono.
+
+Respuesta orientativa:
+
+```json
+{
+  "items": [
+    {
+      "id": "abc123",
+      "ticker": "AMZN",
+      "name": "Amazon",
+      "amount": 1000,
+      "returnPercent": 2,
+      "profit": 20,
+      "payout": 1020,
+      "durationSeconds": 60,
+      "secondsRemaining": 41,
+      "status": "active",
+      "startedAt": "2026-05-21T12:00:00+00:00",
+      "maturityAt": "2026-05-21T12:01:00+00:00",
+      "settledAt": null
+    }
+  ],
+  "active": [],
+  "settled": [],
+  "user": {}
+}
+```
+
+### `POST /users/me/bonds`
+
+Invierte saldo disponible en un bono.
+
+Requiere:
+
+```text
+Authorization: Bearer <idToken>
+```
+
+Recibe:
+
+```json
+{
+  "ticker": "AMZN",
+  "amount": 1000
+}
+```
+
+Funcionamiento:
+
+1. Valida token de Firebase.
+2. Valida que exista una oferta para el ticker.
+3. Comprueba que el usuario tenga saldo suficiente.
+4. Resta el importe del saldo.
+5. Crea el bono activo con vencimiento a 60 segundos.
+6. Registra `BONO_INVERSION` en historial.
+
+Para Amazon, la oferta actual es 2% a 60 segundos. Un importe de `1000` genera:
+
+```text
+profit = 20
+payout = 1020
+```
+
+### `POST /users/me/bonds/settle`
+
+Liquida los bonos vencidos del usuario autenticado. El frontend puede llamarlo al cumplirse el minuto o usar `GET /users/me/bonds`, que ya liquida vencidos antes de responder.
+
+Si hay bonos vencidos:
+
+1. Cambia su estado a `settled`.
+2. Suma `payout` al saldo.
+3. Registra `BONO_CIERRE` en historial.
+4. Devuelve usuario actualizado.
+
 ### `POST /users/me/portfolio/reset`
 
 Reinicia la cartera del usuario autenticado.
@@ -256,11 +358,17 @@ El backend exige token valido, palabra exacta `REINICIAR` y contrasena correcta 
 
 ### `POST /users/me/delete`
 
-Borra la cuenta verificando antes la contrasena actual. Se usa desde el frontend porque permite enviar un body claro con la password.
+Borra la cuenta verificando antes la contrasena actual. Se usa desde el frontend porque permite enviar un body claro con la password:
+
+```json
+{
+  "password": "contrasena_actual"
+}
+```
 
 ### `DELETE /users/me`
 
-Borra la cuenta del usuario autenticado.
+Borra la cuenta del usuario autenticado. Mantiene compatibilidad REST con metodo `DELETE`, pero tambien espera la contrasena actual en el body.
 
 Requiere:
 
@@ -268,19 +376,29 @@ Requiere:
 Authorization: Bearer <idToken>
 ```
 
+Recibe:
+
+```json
+{
+  "password": "contrasena_actual"
+}
+```
+
 Funcionamiento:
 
 1. Valida token de Firebase.
-2. Borra el usuario en Firebase Authentication.
-3. Borra el perfil `usuarios/{uid}` en Firestore.
-4. Borra las transacciones asociadas al usuario.
+2. Verifica la contrasena contra Firebase Authentication.
+3. Borra el usuario en Firebase Authentication.
+4. Borra el perfil `usuarios/{uid}` en Firestore.
+5. Borra las transacciones y bonos asociados al usuario.
 
 Respuesta orientativa:
 
 ```json
 {
   "message": "Cuenta borrada correctamente.",
-  "deleted_transactions": 12
+  "deleted_transactions": 12,
+  "deleted_bonds": 3
 }
 ```
 
@@ -464,6 +582,18 @@ Calcula el coste invertido todavia abierto por activo. Usa compras y ventas para
 
 Si no hay historial valido, el endpoint de ganancias usa una estimacion basada en saldo inicial de 1000 $ mas los depositos registrados menos saldo actual.
 
+### `calcular_fondos_anadidos(transacciones)`
+
+Ajusta el fallback de ganancias segun movimientos de saldo:
+
+- suma `DEPOSITO`
+- resta `RETIRADA`
+- resta `BONO_INVERSION`
+- suma `BONO_CIERRE`
+- reinicia el ajuste con `REINICIO`
+
+Esto evita que los bonos temporales se confundan con coste abierto de acciones.
+
 ### `BuyRequest`
 
 Modelo Pydantic para la compra desde mercado. Usa:
@@ -495,10 +625,23 @@ Se guarda en Firestore dentro del perfil del usuario como `settings.theme`.
 Modelo Pydantic para anadir fondos. Usa:
 
 - `amount`
+- `cantidad`
+- `value`
 
-El backend redondea a dos decimales y registra el ingreso como `DEPOSITO` para que el saldo sea auditable.
+El backend redondea a dos decimales, acepta numeros como texto y registra el ingreso como `DEPOSITO` para que el saldo sea auditable.
 
 El frontend consume este endpoint desde `ConfiguracionSection`, no desde mercado, porque anadir saldo es una operacion de cuenta.
+
+### `BondInvestmentRequest`
+
+Modelo Pydantic para invertir en bonos. Usa:
+
+- `ticker`
+- `amount`
+
+El backend calcula internamente `profit`, `payout`, `startedAt`, `maturityAt` y `secondsRemaining`.
+
+El frontend puede mandar `amount` como numero o texto; el backend lo normaliza con la misma funcion usada para fondos.
 
 ## Como funciona a nivel de seguridad
 
@@ -521,6 +664,8 @@ El frontend consume este endpoint desde `ConfiguracionSection`, no desde mercado
 - La configuracion de tema se expone desde backend para que el modo claro/oscuro no dependa solo del navegador local.
 - Los depositos se tratan como transacciones porque afectan al saldo y tambien al fallback de ganancias basado en saldo.
 - Las retiradas y los reinicios tambien se registran como transacciones porque afectan al saldo y al calculo de ganancias.
+- Las inversiones y cierres de bonos tambien ajustan ese fallback para que una posicion de bonos no parezca coste invertido en acciones.
+- Los bonos usan una coleccion propia `bonos` porque tienen estado, vencimiento y liquidacion; el historial solo guarda el rastro financiero.
 
 ## Consideraciones
 
@@ -529,3 +674,5 @@ El frontend consume este endpoint desde `ConfiguracionSection`, no desde mercado
 - Esa clave no debe quedar hardcodeada en el repositorio. Debe vivir en `.env` o en el sistema de secretos del entorno.
 - La documentacion interactiva de FastAPI sigue disponible en `/docs`.
 - El borrado de cuenta es irreversible: borra Firebase Authentication, perfil de Firestore y transacciones. Debe probarse solo con cuentas de prueba.
+- La liquidacion de bonos ocurre cuando el frontend consulta o llama a liquidar; no hay un worker de fondo levantado por separado.
+- El frontend usa `maturityAt` para el contador y llama a `POST /users/me/bonds/settle` al detectar bonos vencidos. `GET /users/me/bonds` tambien liquida vencidos para cubrir recargas o entradas tardias a la pantalla.

@@ -70,7 +70,14 @@ class SettingsRequest(BaseModel):
 
 
 class AddFundsRequest(BaseModel):
-    amount: float
+    amount: float | str | None = None
+    cantidad: float | str | None = None
+    value: float | str | None = None
+
+
+class BondInvestmentRequest(BaseModel):
+    ticker: str
+    amount: float | str
 
 
 class ResetPortfolioRequest(BaseModel):
@@ -150,10 +157,15 @@ def normalize_theme(theme):
 
 
 def normalize_funds_amount(amount):
-    if not math.isfinite(amount):
+    try:
+        numeric_amount = float(amount)
+    except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail='La cantidad debe ser un numero valido.')
 
-    normalized_amount = round(float(amount), 2)
+    if not math.isfinite(numeric_amount):
+        raise HTTPException(status_code=400, detail='La cantidad debe ser un numero valido.')
+
+    normalized_amount = round(numeric_amount, 2)
 
     if normalized_amount <= 0:
         raise HTTPException(status_code=400, detail='La cantidad debe ser mayor que 0.')
@@ -165,6 +177,21 @@ def normalize_funds_amount(amount):
         )
 
     return normalized_amount
+
+
+def resolve_payload_amount(payload):
+    amount = payload.amount
+
+    if amount is None:
+        amount = payload.cantidad
+
+    if amount is None:
+        amount = payload.value
+
+    if amount is None:
+        raise HTTPException(status_code=400, detail='La cantidad es obligatoria.')
+
+    return normalize_funds_amount(amount)
 
 
 def firebase_sign_in(email, password):
@@ -266,7 +293,7 @@ def update_my_settings(payload: SettingsRequest, authorization: str | None = Hea
 @app.post('/users/me/funds')
 def add_my_funds(payload: AddFundsRequest, authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
-    amount = normalize_funds_amount(payload.amount)
+    amount = resolve_payload_amount(payload)
     balance = db.anadir_fondos(user_id, amount)
 
     return {
@@ -282,7 +309,7 @@ def add_my_funds(payload: AddFundsRequest, authorization: str | None = Header(de
 @app.post('/users/me/funds/withdraw')
 def withdraw_my_funds(payload: AddFundsRequest, authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
-    amount = normalize_funds_amount(payload.amount)
+    amount = resolve_payload_amount(payload)
     success, balance = db.retirar_fondos(user_id, amount)
 
     if not success:
@@ -333,6 +360,67 @@ def delete_verified_account(user_id):
     return {
         'message': 'Cuenta borrada correctamente.',
         **delete_result,
+    }
+
+
+@app.get('/bonds/offers')
+def get_bond_offers():
+    return {
+        'items': db.obtener_ofertas_bonos(),
+    }
+
+
+@app.get('/users/me/bonds')
+def get_my_bonds(authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    bonds = db.obtener_bonos_usuario(user_id, liquidar_vencidos=True)
+
+    return {
+        'items': bonds,
+        'active': [bond for bond in bonds if bond.get('status') == 'active'],
+        'settled': [bond for bond in bonds if bond.get('status') == 'settled'],
+        'user': public_user(user_id),
+    }
+
+
+@app.post('/users/me/bonds')
+def create_my_bond(payload: BondInvestmentRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    ticker = payload.ticker.strip().upper()
+    amount = normalize_funds_amount(payload.amount)
+
+    if not ticker:
+        raise HTTPException(status_code=400, detail='El ticker del bono es obligatorio.')
+
+    success, result, bond = db.crear_bono(user_id, ticker, amount)
+
+    if not success and result == 'BOND_NOT_FOUND':
+        raise HTTPException(status_code=404, detail='No existe una oferta de bono para ese activo.')
+
+    if not success and result == 'INSUFFICIENT_FUNDS':
+        raise HTTPException(status_code=400, detail='Saldo insuficiente para invertir en ese bono.')
+
+    return {
+        'message': 'Bono contratado correctamente.',
+        'bond': bond,
+        'operation': {
+            'amount': amount,
+            'balance': result,
+        },
+        'user': public_user(user_id),
+    }
+
+
+@app.post('/users/me/bonds/settle')
+def settle_my_bonds(authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    settled = db.liquidar_bonos_vencidos(user_id)
+
+    return {
+        'message': 'Bonos vencidos liquidados correctamente.',
+        'items': settled,
+        'settledCount': len(settled),
+        'user': public_user(user_id),
     }
 
 
@@ -642,6 +730,14 @@ def calcular_fondos_anadidos(transacciones):
 
         if tipo == 'RETIRADA':
             total -= float(transaccion.get('total_dinero', 0) or 0)
+            continue
+
+        if tipo == 'BONO_INVERSION':
+            total -= float(transaccion.get('total_dinero', 0) or 0)
+            continue
+
+        if tipo == 'BONO_CIERRE':
+            total += float(transaccion.get('total_dinero', 0) or 0)
             continue
 
         if tipo == 'REINICIO':

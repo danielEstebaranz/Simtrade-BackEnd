@@ -1,11 +1,41 @@
 import firebase_admin
 import hashlib
+import math
+from datetime import datetime, timedelta, timezone
 from firebase_admin import credentials, firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 
 DEFAULT_SETTINGS = {
     'theme': 'light',
+}
+
+BOND_OFFERS = {
+    'AMZN': {
+        'name': 'Amazon',
+        'return_percent': 2.0,
+        'duration_seconds': 60,
+    },
+    'AAPL': {
+        'name': 'Apple',
+        'return_percent': 1.5,
+        'duration_seconds': 60,
+    },
+    'MSFT': {
+        'name': 'Microsoft',
+        'return_percent': 1.6,
+        'duration_seconds': 60,
+    },
+    'GOOGL': {
+        'name': 'Alphabet',
+        'return_percent': 1.8,
+        'duration_seconds': 60,
+    },
+    'TSLA': {
+        'name': 'Tesla',
+        'return_percent': 2.5,
+        'duration_seconds': 60,
+    },
 }
 
 
@@ -214,6 +244,173 @@ class DbHandler:
         self._registrar_transaccion(user_id, 'RETIRADA', 'CASH', 1, cantidad, cantidad)
         return True, nuevo_saldo
 
+    def obtener_ofertas_bonos(self):
+        """Devuelve las ofertas de bonos disponibles para invertir."""
+        return [
+            {
+                'ticker': ticker,
+                **offer,
+            }
+            for ticker, offer in BOND_OFFERS.items()
+        ]
+
+    def crear_bono(self, user_id, ticker, cantidad):
+        """Crea una inversion en bono y descuenta el importe del saldo."""
+        ticker = ticker.strip().upper()
+        offer = BOND_OFFERS.get(ticker)
+
+        if offer is None:
+            return False, 'BOND_NOT_FOUND', None
+
+        user_ref = self.db.collection('usuarios').document(user_id)
+        user_data = self.obtener_usuario(user_id)
+        saldo_actual = float(user_data.get('saldo', 1000.0) or 0)
+
+        if cantidad > saldo_actual:
+            return False, 'INSUFFICIENT_FUNDS', saldo_actual
+
+        started_at = datetime.now(timezone.utc)
+        maturity_at = started_at + timedelta(seconds=offer['duration_seconds'])
+        nuevo_saldo = round(saldo_actual - cantidad, 2)
+        user_ref.update({'saldo': nuevo_saldo})
+
+        bond_ref = self.db.collection('bonos').document()
+        bond_ref.set({
+            'usuario': user_id,
+            'ticker': ticker,
+            'name': offer['name'],
+            'amount': cantidad,
+            'return_percent': offer['return_percent'],
+            'profit': round(cantidad * (offer['return_percent'] / 100), 2),
+            'payout': round(cantidad + cantidad * (offer['return_percent'] / 100), 2),
+            'duration_seconds': offer['duration_seconds'],
+            'status': 'active',
+            'started_at': started_at,
+            'maturity_at': maturity_at,
+            'settled_at': None,
+        })
+        self._registrar_transaccion(user_id, 'BONO_INVERSION', ticker, 1, cantidad, cantidad)
+
+        bono = bond_ref.get().to_dict()
+        bono['id'] = bond_ref.id
+        return True, nuevo_saldo, self._public_bond(bono)
+
+    def obtener_bonos_usuario(self, user_id, liquidar_vencidos=True):
+        """Consulta los bonos del usuario y liquida los vencidos si se solicita."""
+        if liquidar_vencidos:
+            self.liquidar_bonos_vencidos(user_id)
+
+        try:
+            docs = self.db.collection('bonos')\
+                        .where(filter=FieldFilter('usuario', '==', user_id))\
+                        .get()
+            bonos = []
+
+            for doc in docs:
+                bono = doc.to_dict()
+                bono['id'] = doc.id
+                bonos.append(self._public_bond(bono))
+
+            return sorted(
+                bonos,
+                key=lambda bono: bono.get('startedAt') or '',
+                reverse=True,
+            )
+        except Exception as e:
+            print(f"Error al consultar bonos: {e}")
+            return []
+
+    def liquidar_bonos_vencidos(self, user_id):
+        """Liquida bonos activos cuya fecha de vencimiento ya se haya cumplido."""
+        now = datetime.now(timezone.utc)
+        try:
+            docs = self.db.collection('bonos')\
+                        .where(filter=FieldFilter('usuario', '==', user_id))\
+                        .get()
+            liquidados = []
+
+            for doc in docs:
+                bono = doc.to_dict()
+
+                if bono.get('status') != 'active':
+                    continue
+
+                maturity_at = bono.get('maturity_at')
+                maturity_at = self._ensure_utc(maturity_at)
+
+                if not maturity_at or maturity_at > now:
+                    continue
+
+                payout = round(float(bono.get('payout', 0) or 0), 2)
+                profit = round(float(bono.get('profit', 0) or 0), 2)
+                ticker = str(bono.get('ticker', '')).upper()
+                user_ref = self.db.collection('usuarios').document(user_id)
+                user_data = self.obtener_usuario(user_id)
+                saldo_actual = float(user_data.get('saldo', 1000.0) or 0)
+                nuevo_saldo = round(saldo_actual + payout, 2)
+                user_ref.update({'saldo': nuevo_saldo})
+                doc.reference.update({
+                    'status': 'settled',
+                    'settled_at': now,
+                    'balance_after_settlement': nuevo_saldo,
+                })
+                self._registrar_transaccion(user_id, 'BONO_CIERRE', ticker, 1, payout, payout)
+
+                bono.update({
+                    'id': doc.id,
+                    'status': 'settled',
+                    'settled_at': now,
+                    'balance_after_settlement': nuevo_saldo,
+                    'profit': profit,
+                    'payout': payout,
+                })
+                liquidados.append(self._public_bond(bono))
+
+            return liquidados
+        except Exception as e:
+            print(f"Error al liquidar bonos vencidos: {e}")
+            return []
+
+    def _public_bond(self, bond):
+        """Transforma un bono de Firestore en una respuesta estable para la API."""
+        started_at = bond.get('started_at')
+        maturity_at = bond.get('maturity_at')
+        settled_at = bond.get('settled_at')
+        started_at = self._ensure_utc(started_at)
+        maturity_at = self._ensure_utc(maturity_at)
+        settled_at = self._ensure_utc(settled_at)
+        now = datetime.now(timezone.utc)
+        seconds_remaining = 0
+
+        if bond.get('status') == 'active' and maturity_at:
+            seconds_remaining = max(0, math.ceil((maturity_at - now).total_seconds()))
+
+        return {
+            'id': bond.get('id', ''),
+            'ticker': str(bond.get('ticker', '')).upper(),
+            'name': bond.get('name', ''),
+            'amount': float(bond.get('amount', 0) or 0),
+            'returnPercent': float(bond.get('return_percent', 0) or 0),
+            'profit': float(bond.get('profit', 0) or 0),
+            'payout': float(bond.get('payout', 0) or 0),
+            'durationSeconds': int(bond.get('duration_seconds', 0) or 0),
+            'secondsRemaining': seconds_remaining,
+            'status': bond.get('status', 'active'),
+            'startedAt': started_at.isoformat() if hasattr(started_at, 'isoformat') else None,
+            'maturityAt': maturity_at.isoformat() if hasattr(maturity_at, 'isoformat') else None,
+            'settledAt': settled_at.isoformat() if hasattr(settled_at, 'isoformat') else None,
+            'balanceAfterSettlement': bond.get('balance_after_settlement'),
+        }
+
+    def _ensure_utc(self, value):
+        if value is None or not hasattr(value, 'tzinfo'):
+            return value
+
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value.astimezone(timezone.utc)
+
     def reiniciar_cartera(self, user_id, saldo_inicial=1000.0):
         """Deja la cartera en el estado inicial y registra el reinicio."""
         user_ref = self.db.collection('usuarios').document(user_id)
@@ -226,18 +423,32 @@ class DbHandler:
         return float(saldo_inicial)
 
     def eliminar_cuenta(self, user_id):
-        """Borra el perfil de Firestore y sus transacciones asociadas."""
+        """Borra el perfil de Firestore y sus datos de negocio asociados."""
         transacciones = self.db.collection('transacciones')\
                             .where(filter=FieldFilter('usuario', '==', user_id))\
                             .get()
+        bonos = self.db.collection('bonos')\
+                    .where(filter=FieldFilter('usuario', '==', user_id))\
+                    .get()
         batch = self.db.batch()
         operaciones_batch = 0
         transacciones_borradas = 0
+        bonos_borrados = 0
 
         for transaccion in transacciones:
             batch.delete(transaccion.reference)
             operaciones_batch += 1
             transacciones_borradas += 1
+
+            if operaciones_batch == 450:
+                batch.commit()
+                batch = self.db.batch()
+                operaciones_batch = 0
+
+        for bono in bonos:
+            batch.delete(bono.reference)
+            operaciones_batch += 1
+            bonos_borrados += 1
 
             if operaciones_batch == 450:
                 batch.commit()
@@ -250,6 +461,7 @@ class DbHandler:
         self.db.collection('usuarios').document(user_id).delete()
         return {
             'deleted_transactions': transacciones_borradas,
+            'deleted_bonds': bonos_borrados,
         }
 
     def realizar_compra(self, ticker, cantidad, precio_unidad, user_id="usuario_demo"):
