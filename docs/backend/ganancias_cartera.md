@@ -101,7 +101,7 @@ none             -> no calculable
 El backend intenta calcular el coste asi:
 
 1. Lee el historial de transacciones del usuario.
-2. Calcula el coste abierto de cada activo.
+2. Calcula el coste abierto de cada activo usando compras y reinversiones.
 3. Si hubo ventas, resta el coste proporcional vendido.
 4. Si no hay historial valido, estima:
 
@@ -110,6 +110,26 @@ coste estimado = 1000 - saldo actual
 ```
 
 La estimacion es un fallback. El dato preferente siempre es el historial real.
+
+## Dividendos reinvertidos y coste invertido
+
+El worker puede registrar operaciones internas de tipo:
+
+```text
+DIVIDENDO_REINVERTIDO
+```
+
+Estas operaciones representan dividendos simulados que se han convertido automaticamente en mas unidades del mismo activo.
+
+Para el calculo de `investedCost`, el backend trata `DIVIDENDO_REINVERTIDO` igual que una compra:
+
+```python
+if tipo in {'COMPRA', 'DIVIDENDO_REINVERTIDO'}:
+```
+
+Esto es importante porque el usuario no recibe ese dinero en saldo disponible; el importe queda invertido dentro de la posicion. Si no se contase como coste abierto, la ganancia total pareceria artificialmente mas alta.
+
+El backend conserva esos movimientos para mantener los calculos de cartera, pero `GET /users/me/history` los filtra antes de responder. El frontend tambien los descarta por seguridad visual.
 
 ## Valor actual por posicion
 

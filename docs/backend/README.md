@@ -12,7 +12,7 @@ Esta carpeta recoge la documentacion funcional del backend actual de Simtrade-Ba
 - [ganancias_cartera.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/ganancias_cartera.md): calculo de ganancias totales, ganancias diarias y valor actual por posicion de la cartera.
 - [glosario_tecnico.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/glosario_tecnico.md): explicacion de terminos tecnicos del backend y por que se usan.
 - [main.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/main.md): flujo principal de consola para registro, login, logout y operativa del usuario.
-- [worker_precios.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/worker_precios.md): sincronizacion periodica de precios desde Finnhub hacia Firestore.
+- [worker_precios.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/worker_precios.md): sincronizacion periodica de precios desde Finnhub hacia Firestore y reinversion automatica de dividendos simulados.
 
 ## Cobertura actual
 
@@ -55,7 +55,7 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 - El frontend consume la configuracion desde `/panel/configuracion` para modo claro/oscuro, anadir fondos, quitar fondos, reiniciar cartera y borrar cuenta.
 - El frontend consume `/panel/bonos` para mostrar ofertas de bonos, crear inversiones a 60 segundos, refrescar contadores, liquidar vencidos y reflejar el rastro en historial.
 - El asistente IA de soporte se integra fuera de este backend mediante n8n; la API Python no participa en ese flujo.
-- `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos.
+- `worker_precios.py` actualiza la coleccion `mercado` cada 60 segundos y aplica dividendos simulados reinvertidos en la misma accion.
 - `main.py` mantiene una app de consola para pruebas y operativa local usando tambien Firebase Authentication.
 
 ## Decisiones de diseno
@@ -66,4 +66,4 @@ Segun [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-Back
 - La autenticacion queda delegada en Firebase Authentication, mientras Firestore guarda solo el perfil y los datos de negocio.
 - Los bonos viven en una coleccion separada porque tienen estado (`active` o `settled`), vencimiento (`maturity_at`) y liquidacion (`settled_at`).
 - La consola y la API usan el mismo criterio de autenticacion para evitar dobles sistemas y errores de compatibilidad entre web y terminal.
-- Se ha dejado `worker_precios.py` como proceso separado porque actualizar precios continuamente no deberia bloquear ni el login ni la aplicacion de usuario.
+- Se ha dejado `worker_precios.py` como proceso separado porque actualizar precios y aplicar reinversiones periodicas no deberia bloquear ni el login ni la aplicacion de usuario.

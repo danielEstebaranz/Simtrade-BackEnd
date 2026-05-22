@@ -505,6 +505,50 @@ class DbHandler:
             return True, nuevo_saldo
         return False, user_data['saldo']
 
+    def reinvertir_dividendo(self, user_id, ticker, importe_dividendo, precio_unidad):
+        """Convierte un dividendo en mas unidades del mismo activo sin tocar el saldo."""
+        if importe_dividendo <= 0 or precio_unidad <= 0:
+            return False, 0.0
+
+        user_ref = self.db.collection('usuarios').document(user_id)
+        user_data = self.obtener_usuario(user_id)
+        cartera = user_data.get('cartera', {})
+        cantidad = importe_dividendo / precio_unidad
+
+        cartera[ticker] = cartera.get(ticker, 0) + cantidad
+        user_ref.update({'cartera': cartera})
+        self._registrar_transaccion(
+            user_id,
+            'DIVIDENDO_REINVERTIDO',
+            ticker,
+            cantidad,
+            precio_unidad,
+            importe_dividendo,
+        )
+
+        return True, cantidad
+
+    def obtener_usuarios_con_cartera(self):
+        """Devuelve usuarios que tienen al menos una posicion en cartera."""
+        try:
+            docs = self.db.collection('usuarios').stream()
+            usuarios = []
+
+            for doc in docs:
+                data = doc.to_dict() or {}
+                cartera = data.get('cartera') or {}
+
+                if cartera:
+                    usuarios.append({
+                        'id': doc.id,
+                        'cartera': cartera,
+                    })
+
+            return usuarios
+        except Exception as e:
+            print(f"Error al consultar usuarios con cartera: {e}")
+            return []
+
     def obtener_historial(self, user_id):
         try:
             docs = self.db.collection('transacciones')\

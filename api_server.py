@@ -260,7 +260,11 @@ def get_my_portfolio(authorization: str | None = Header(default=None)):
 @app.get('/users/me/history')
 def get_my_history(authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
-    transacciones = db.obtener_historial(user_id)
+    transacciones = [
+        transaccion
+        for transaccion in db.obtener_historial(user_id)
+        if str(transaccion.get('tipo', '')).upper() != 'DIVIDENDO_REINVERTIDO'
+    ]
 
     return {
         'items': [public_transaction(transaccion) for transaccion in transacciones],
@@ -689,7 +693,7 @@ def calcular_costes_abiertos(transacciones):
         if not ticker or cantidad <= 0:
             continue
 
-        if tipo == 'COMPRA':
+        if tipo in {'COMPRA', 'DIVIDENDO_REINVERTIDO'}:
             cantidades[ticker] = cantidades.get(ticker, 0.0) + cantidad
             costes[ticker] = costes.get(ticker, 0.0) + cantidad * precio
             continue

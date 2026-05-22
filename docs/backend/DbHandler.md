@@ -109,6 +109,10 @@ Devuelve las ofertas de bonos disponibles. Ahora mismo todos vencen a 60 segundo
 
 Resta saldo al usuario, crea un documento activo en `bonos` y registra `BONO_INVERSION` en `transacciones`.
 
+Los bonos son productos independientes de la cartera de acciones. El usuario puede contratar un bono de `TSLA` aunque no tenga acciones de Tesla compradas, porque el bono no representa una posicion accionarial: representa una inversion temporal ofrecida por la plataforma con una rentabilidad fija simulada.
+
+Por eso `crear_bono(...)` valida contra `BOND_OFFERS`, no contra `usuario.cartera`.
+
 Cada bono guarda:
 
 ```python
@@ -152,6 +156,22 @@ En la web, este metodo se llama desde `POST /users/me/portfolio/buy`. El fronten
 
 Actualiza saldo, cartera y registra la venta en `transacciones`.
 
+### `reinvertir_dividendo(user_id, ticker, importe_dividendo, precio_unidad)`
+
+Convierte un dividendo simulado en mas unidades del mismo activo.
+
+No aumenta el saldo disponible del usuario. El importe se transforma directamente en unidades:
+
+```text
+unidades nuevas = importe_dividendo / precio_unidad
+```
+
+Despues registra una transaccion interna `DIVIDENDO_REINVERTIDO`. Esa transaccion no se muestra en el historial del frontend, pero si se usa para calcular correctamente el dinero invertido.
+
+### `obtener_usuarios_con_cartera()`
+
+Devuelve los usuarios que tienen posiciones abiertas. El worker la usa para saber sobre que carteras debe aplicar la reinversion automatica.
+
 ### `obtener_historial(user_id)`
 
 Consulta las ultimas transacciones del usuario.
@@ -170,6 +190,7 @@ Primero consulta por usuario y despues ordena en Python por `fecha`. Se hizo asi
 - El documento del usuario usa el `uid` de Firebase Authentication, que es estable y seguro.
 - La cartera se transforma en lista dentro del backend para no obligar al frontend a reinterpretar estructuras de Firestore.
 - Las transacciones se usan para calcular el coste invertido real antes de recurrir a estimaciones.
+- Las reinversiones se guardan como transacciones internas para que el coste invertido no quede descuadrado.
 - Los depositos se guardan como transacciones para que el saldo no cambie sin rastro.
 - Los depositos tambien evitan que el fallback de ganancias confunda fondos anadidos con dinero no invertido.
 - Los bonos viven en una coleccion separada porque necesitan estado y fecha de vencimiento.
