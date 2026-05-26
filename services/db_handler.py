@@ -47,8 +47,8 @@ class DbHandler:
                 firebase_admin.initialize_app(cred)
             self.db = firestore.client()
             print("Conexión establecida con Firebase Firestore.")
-        except Exception as e:
-            print(f"Error crítico al conectar con Firebase: {e}")
+        except Exception as exc:
+            print(f"Error crítico al conectar con Firebase: {exc}")
     
     def actualizar_precio(self, datos):
         """Actualiza los precios en la colección 'mercado'"""
@@ -60,8 +60,8 @@ class DbHandler:
                 'porcentaje': datos['porcentaje'],
                 'ultima_actualizacion': firestore.SERVER_TIMESTAMP 
             })
-        except Exception as e:
-            print(f"Error al actualizar precio: {e}")
+        except Exception as exc:
+            print(f"Error al actualizar precio: {exc}")
 
     def _encriptar_password(self, password):
         """Genera un hash simple de la contraseña para no guardar texto plano."""
@@ -216,9 +216,8 @@ class DbHandler:
                 'total_dinero': total,
                 'fecha': firestore.SERVER_TIMESTAMP
             })
-            print(f"Movimiento registrado: {tipo} de {ticker}")
-        except Exception as e:
-            print(f"Error al escribir en historial: {e}")
+        except Exception as exc:
+            print(f"Error al escribir en historial: {exc}")
 
     def anadir_fondos(self, user_id, cantidad):
         """Suma fondos al saldo disponible del usuario y registra el movimiento."""
@@ -316,8 +315,8 @@ class DbHandler:
                 key=lambda bono: bono.get('startedAt') or '',
                 reverse=True,
             )
-        except Exception as e:
-            print(f"Error al consultar bonos: {e}")
+        except Exception as exc:
+            print(f"Error al consultar bonos: {exc}")
             return []
 
     def liquidar_bonos_vencidos(self, user_id):
@@ -367,8 +366,8 @@ class DbHandler:
                 liquidados.append(self._public_bond(bono))
 
             return liquidados
-        except Exception as e:
-            print(f"Error al liquidar bonos vencidos: {e}")
+        except Exception as exc:
+            print(f"Error al liquidar bonos vencidos: {exc}")
             return []
 
     def _public_bond(self, bond):
@@ -475,7 +474,6 @@ class DbHandler:
             cartera[ticker] = cartera.get(ticker, 0) + cantidad
             user_ref.update({'saldo': nuevo_saldo, 'cartera': cartera})
             
-            # LLAMADA AL HISTORIAL
             self._registrar_transaccion(user_id, 'COMPRA', ticker, cantidad, precio_unidad, coste_total)
             
             return True, nuevo_saldo
@@ -499,7 +497,6 @@ class DbHandler:
                 
             user_ref.update({'saldo': nuevo_saldo, 'cartera': cartera})
             
-            # LLAMADA AL HISTORIAL
             self._registrar_transaccion(user_id, 'VENTA', ticker, cantidad_a_vender, precio_unidad, ingreso)
             
             return True, nuevo_saldo
@@ -545,8 +542,8 @@ class DbHandler:
                     })
 
             return usuarios
-        except Exception as e:
-            print(f"Error al consultar usuarios con cartera: {e}")
+        except Exception as exc:
+            print(f"Error al consultar usuarios con cartera: {exc}")
             return []
 
     def obtener_historial(self, user_id):
@@ -566,8 +563,8 @@ class DbHandler:
                 key=lambda transaccion: transaccion.get('fecha') or '',
                 reverse=True,
             )[:20]
-        except Exception as e:
-            print(f"Error al consultar historial: {e}")
+        except Exception as exc:
+            print(f"Error al consultar historial: {exc}")
             return []
 
     def obtener_transacciones_usuario(self, user_id):
@@ -581,6 +578,6 @@ class DbHandler:
                 transacciones,
                 key=lambda transaccion: transaccion.get('fecha') or '',
             )
-        except Exception as e:
-            print(f"Error al consultar transacciones del usuario: {e}")
+        except Exception as exc:
+            print(f"Error al consultar transacciones del usuario: {exc}")
             return []

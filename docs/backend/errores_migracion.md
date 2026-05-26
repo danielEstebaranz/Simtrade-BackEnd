@@ -46,7 +46,7 @@ En una fase intermedia, `/auth/login` se dejo como endpoint informativo para una
 
 Se reemplazo por login real contra Firebase Authentication usando `signInWithPassword`.
 
-## 4. El frontend permitia contrasenas demasiado cortas
+## 4. El frontend permitia contraseñas demasiado cortas
 
 ### Causa
 
@@ -98,7 +98,7 @@ Tras limpiar los usuarios legacy e implantar Firebase Authentication en la web, 
 - buscaba el usuario por `username` en Firestore
 - comparaba un `password` local
 
-Ese modelo ya no era valido porque los perfiles nuevos se guardan por `uid` y ya no almacenan contrasena en Firestore.
+Ese modelo ya no era valido porque los perfiles nuevos se guardan por `uid` y ya no almacenan contraseña en Firestore.
 
 ### Solucion
 

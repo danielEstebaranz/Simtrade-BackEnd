@@ -126,7 +126,7 @@ FIREBASE_WEB_API_KEY=...
 
 #### Solucion
 
-Se debe anadir en el `.env` del backend y reiniciar el servidor.
+Se debe añadir en el `.env` del backend y reiniciar el servidor.
 
 La clave se obtiene en Firebase Console:
 
@@ -327,7 +327,7 @@ Asi el registro y el login dejan la misma sesion preparada para comprar, vender 
 La pantalla `/panel/configuracion` del frontend ya existia, pero para que funcionara necesitaba contratos HTTP claros para:
 
 - leer y cambiar tema
-- anadir fondos
+- añadir fondos
 - retirar fondos
 - reiniciar cartera
 - borrar cuenta
@@ -345,13 +345,13 @@ POST /users/me/portfolio/reset
 POST /users/me/delete
 ```
 
-Todos usan `Authorization: Bearer <idToken>` y devuelven JSON pensado para que Angular actualice `AuthService`. Las operaciones destructivas piden tambien la contrasena actual.
+Todos usan `Authorization: Bearer <idToken>` y devuelven JSON pensado para que Angular actualice `AuthService`. Las operaciones destructivas piden tambien la contraseña actual.
 
 ### Depositos confundidos con compras en el historial
 
 #### Causa
 
-Al anadir fondos, `DbHandler` registra `DEPOSITO`. Si el frontend no lo distingue, puede tratarlo como una compra generica.
+Al añadir fondos, `DbHandler` registra `DEPOSITO`. Si el frontend no lo distingue, puede tratarlo como una compra generica.
 
 #### Solucion
 
@@ -359,7 +359,7 @@ El backend mantiene `type: "deposito"` en la respuesta de historial y el fronten
 
 Esto conserva trazabilidad del saldo y evita mezclar depositos con operaciones de mercado.
 
-### El importe manual de anadir fondos no se aplicaba
+### El importe manual de añadir fondos no se aplicaba
 
 #### Causa
 
@@ -485,7 +485,7 @@ Se usa en servicios como `AuthService`, `MarketService`, `AccountService` y `Cha
 
 `api_server.py` es la capa que entiende HTTP.
 
-Asi no se rompe la consola mientras se anade frontend.
+Asi no se rompe la consola mientras se añade frontend.
 
 ### No duplicar Firestore
 
@@ -510,7 +510,7 @@ No hay JWT, cookies seguras ni expiracion de sesion.
 
 Para produccion se deberia implementar autenticacion real.
 
-### Hash de contrasena
+### Hash de contraseña
 
 Se usa SHA-256 simple. Es mejor que texto plano, pero no es lo ideal.
 
@@ -551,7 +551,7 @@ Esto es correcto para datos reales, pero a futuro se podria mostrar una confirma
 
 ### Borrado irreversible de cuenta
 
-`POST /users/me/delete` y `DELETE /users/me` borran el usuario de Firebase Authentication, el perfil de Firestore, las transacciones y los bonos. En frontend se pide escribir `BORRAR` y despues introducir la contrasena actual. A nivel de backend se exige `idToken` valido y password correcta.
+`POST /users/me/delete` y `DELETE /users/me` borran el usuario de Firebase Authentication, el perfil de Firestore, las transacciones y los bonos. En frontend se pide escribir `BORRAR` y despues introducir la contraseña actual. A nivel de backend se exige `idToken` valido y password correcta.
 
 ### No hay tests automatizados
 
@@ -642,7 +642,7 @@ Para cambiar tema:
 curl.exe -s -i -X PATCH "http://127.0.0.1:8000/users/me/settings" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"theme\":\"dark\"}"
 ```
 
-### Como compruebo anadir fondos
+### Como compruebo añadir fondos
 
 ```powershell
 curl.exe -s -i -X POST "http://127.0.0.1:8000/users/me/funds" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"amount\":250}"

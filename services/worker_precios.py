@@ -7,8 +7,8 @@ from market_assets import market_tickers
 
 load_dotenv()
 
-SIMULATED_DIVIDEND_DAYS_PER_CYCLE = 30
-SIMULATED_ANNUAL_DIVIDEND_RATES = {
+DIVIDEND_DAYS_PER_CYCLE = 30
+DIVIDEND_RATES = {
     'AAPL': 0.06,
     'AMZN': 0.02,
     'GOOGL': 0.03,
@@ -30,7 +30,7 @@ def reinvertir_dividendos_usuarios(api, db):
 
         for ticker, cantidad in cartera.items():
             cantidad = float(cantidad or 0)
-            tasa_anual = SIMULATED_ANNUAL_DIVIDEND_RATES.get(str(ticker).upper(), 0.0)
+            tasa_anual = DIVIDEND_RATES.get(str(ticker).upper(), 0.0)
 
             if cantidad <= 0 or tasa_anual <= 0:
                 continue
@@ -48,7 +48,7 @@ def reinvertir_dividendos_usuarios(api, db):
 
             valor_actual = cantidad * precio_actual
             importe_dividendo = round(
-                valor_actual * tasa_anual * (SIMULATED_DIVIDEND_DAYS_PER_CYCLE / 365),
+                valor_actual * tasa_anual * (DIVIDEND_DAYS_PER_CYCLE / 365),
                 2,
             )
 
@@ -68,10 +68,9 @@ def ejecutar_worker():
     db = DbHandler(os.getenv('FIREBASE_JSON_PATH'))
     
     activos = market_tickers()
-    INTERVALO = 60 # 1 minuto
+    intervalo_segundos = 60
 
-    # Solo imprimimos esto al arrancar
-    print(f" Worker iniciado: Actualizando {len(activos)} activos cada minuto...")
+    print(f"Worker iniciado: actualizando {len(activos)} activos cada minuto.")
 
     try:
         while True:
@@ -79,13 +78,12 @@ def ejecutar_worker():
                 datos = api.obtener_precio_actual(ticker)
                 if datos:
                     db.actualizar_precio(datos)
-                # Aquí no hay prints si todo va bien: silencio total.
             reinversiones = reinvertir_dividendos_usuarios(api, db)
             if reinversiones:
                 print(f"Dividendos reinvertidos automaticamente: {reinversiones}")
-            time.sleep(INTERVALO)
+            time.sleep(intervalo_segundos)
     except KeyboardInterrupt:
-        print("\n Worker detenido.")
+        print("\nWorker detenido.")
 
 if __name__ == "__main__":
     ejecutar_worker()

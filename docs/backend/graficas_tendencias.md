@@ -146,6 +146,6 @@ Y en el JSON:
 ## Mejoras futuras
 
 - Crear cache temporal por ticker y rango.
-- Anadir endpoint de busqueda de tickers.
+- Añadir endpoint de busqueda de tickers.
 - Guardar el ultimo historico consultado si se quiere trabajar sin conexion.
 - Usar una libreria de autenticacion real para proteger endpoints privados.

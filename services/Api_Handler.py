@@ -1,4 +1,5 @@
 import math
+
 import yfinance as yf
 
 try:
@@ -6,44 +7,39 @@ try:
 except ImportError:
     finnhub = None
 
+
 class ApiHandler:
     """
-    Clase encargada de la comunicación con Finnhub.io.
-    Su objetivo es centralizar las peticiones de mercado para no repetir código.
+    Clase encargada de comunicarse con los proveedores de mercado.
+    Finnhub se usa para precio actual y yfinance para historicos.
     """
+
     def __init__(self, api_key=None):
-        # Finnhub se conserva para precio actual; yfinance se usa para historicos.
         self.client = finnhub.Client(api_key=api_key) if api_key and finnhub is not None else None
 
     def obtener_precio_actual(self, ticker):
-        """
-        Solicita el precio actual de un activo (ej: 'AAPL', 'BTC/USD').
-        Retorna un diccionario limpio o None si hay error.
-        """
+        """Solicita el precio actual de un activo y devuelve datos normalizados."""
         if self.client is None:
-            print(" FINNHUB_API_KEY no esta configurada.")
+            print("FINNHUB_API_KEY no esta configurada.")
             return None
 
         try:
-            # Llamada al método 'quote' del SDK de Finnhub
-            res = self.client.quote(ticker.upper())
-            
-            # Si el precio 'c' (current) es 0, es probable que el ticker no exista
-            if res['c'] == 0:
-                print(f" El activo {ticker} no devolvió datos válidos.")
+            quote = self.client.quote(ticker.upper())
+
+            if quote['c'] == 0:
+                print(f"El activo {ticker} no devolvio datos validos.")
                 return None
-            
-            # Mapeamos las claves cortas de la API a nombres legibles
+
             return {
-                "simbolo": ticker.upper(),
-                "precio": res['c'],      # Precio actual
-                "variacion": res['d'],   # Cambio en dólares
-                "porcentaje": res['dp'], # Cambio en %
-                "maximo": res['h'],      # Máximo del día
-                "minimo": res['l']       # Mínimo del día
+                'simbolo': ticker.upper(),
+                'precio': quote['c'],
+                'variacion': quote['d'],
+                'porcentaje': quote['dp'],
+                'maximo': quote['h'],
+                'minimo': quote['l'],
             }
-        except Exception as e:
-            print(f" Error de red en ApiHandler: {e}")
+        except Exception as exc:
+            print(f"Error de red en ApiHandler: {exc}")
             return None
 
     def obtener_tendencia(self, ticker, rango):
@@ -87,8 +83,8 @@ class ApiHandler:
                 'points': self._compactar_puntos(puntos),
                 'source': 'yfinance',
             }
-        except Exception as e:
-            print(f" Error al obtener tendencia de {ticker}: {e}")
+        except Exception as exc:
+            print(f"Error al obtener tendencia de {ticker}: {exc}")
             return None
 
     def _normalizar_simbolo_historico(self, ticker):

@@ -43,6 +43,6 @@ Instaladas desde [requirements.txt](C:/Users/monsu/OneDrive/Documentos/GitHub/Si
 
 La documentacion detallada del backend esta en [docs/backend/README.md](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/README.md:1).
 
-## Nota sobre el asistente IA
+## Nota sobre el asistente virtual
 
 El asistente virtual de soporte no forma parte de este backend Python. Vive como integracion externa en n8n y el frontend lo consume directamente mediante HTTP. El backend sigue siendo responsable de autenticacion, datos de negocio y mercado.

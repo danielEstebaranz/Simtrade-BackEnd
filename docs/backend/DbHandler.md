@@ -8,7 +8,7 @@ Archivo fuente: [services/db_handler.py](C:/Users/monsu/OneDrive/Documentos/GitH
 
 ## Que guarda ahora mismo
 
-La coleccion `usuarios` ya no se usa para autenticar contrasenas. Su funcion actual es guardar:
+La coleccion `usuarios` ya no se usa para autenticar contraseñas. Su funcion actual es guardar:
 
 - `username`
 - `email`
@@ -93,7 +93,7 @@ Actualiza `settings.theme` con `dark` o `light`.
 
 Suma la cantidad al `saldo`, redondea a dos decimales y registra un movimiento `DEPOSITO` en `transacciones`.
 
-El deposito se registra con `ticker = "CASH"`, `cantidad = 1`, `precio_unidad = cantidad` y `total_dinero = cantidad`. Asi el historial puede mostrar el ingreso y el calculo de ganancias puede distinguir dinero anadido frente a dinero generado por ventas.
+El deposito se registra con `ticker = "CASH"`, `cantidad = 1`, `precio_unidad = cantidad` y `total_dinero = cantidad`. Asi el historial puede mostrar el ingreso y el calculo de ganancias puede distinguir dinero añadido frente a dinero generado por ventas.
 
 ### `eliminar_cuenta(user_id)`
 
@@ -192,7 +192,7 @@ Primero consulta por usuario y despues ordena en Python por `fecha`. Se hizo asi
 - Las transacciones se usan para calcular el coste invertido real antes de recurrir a estimaciones.
 - Las reinversiones se guardan como transacciones internas para que el coste invertido no quede descuadrado.
 - Los depositos se guardan como transacciones para que el saldo no cambie sin rastro.
-- Los depositos tambien evitan que el fallback de ganancias confunda fondos anadidos con dinero no invertido.
+- Los depositos tambien evitan que el fallback de ganancias confunda fondos añadidos con dinero no invertido.
 - Los bonos viven en una coleccion separada porque necesitan estado y fecha de vencimiento.
 - Las operaciones de bonos tambien se registran en `transacciones` para que el historial del usuario tenga rastro financiero completo.
 - Se mantiene `DbHandler` como punto unico de acceso para que la logica de base de datos no se disperse en toda la aplicacion.

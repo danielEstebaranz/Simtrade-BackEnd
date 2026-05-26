@@ -72,7 +72,7 @@ Actualmente cada ciclo simula 30 dias para que el efecto pueda verse durante las
 La tabla de tasas esta definida en el propio worker:
 
 ```python
-SIMULATED_ANNUAL_DIVIDEND_RATES = {
+DIVIDEND_RATES = {
     'AAPL': 0.06,
     'AMZN': 0.02,
     'GOOGL': 0.03,
@@ -107,7 +107,7 @@ INTERVALO = 60
 Pero cada ciclo simula 30 dias de dividendo:
 
 ```python
-SIMULATED_DIVIDEND_DAYS_PER_CYCLE = 30
+DIVIDEND_DAYS_PER_CYCLE = 30
 ```
 
 Por tanto, en esta demo:
@@ -116,7 +116,7 @@ Por tanto, en esta demo:
 1 minuto real = 30 dias simulados de dividendo
 ```
 
-No significa que 1 minuto sea 1 dia. Se acelero a 30 dias por ciclo para que la reinversion se pueda observar durante una presentacion corta. Si se quisiera que 1 minuto representase 1 dia, bastaria con cambiar `SIMULATED_DIVIDEND_DAYS_PER_CYCLE` a `1`, aunque el efecto seria mucho menos visible.
+No significa que 1 minuto sea 1 dia. Se acelero a 30 dias por ciclo para que la reinversion se pueda observar durante una presentacion corta. Si se quisiera que 1 minuto representase 1 dia, bastaria con cambiar `DIVIDEND_DAYS_PER_CYCLE` a `1`, aunque el efecto seria mucho menos visible.
 
 Ese importe no se suma al saldo. Se transforma directamente en mas unidades del mismo activo:
 

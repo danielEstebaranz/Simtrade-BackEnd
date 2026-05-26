@@ -67,7 +67,7 @@ Muestra el menu inicial con tres opciones:
 
 ### `iniciar_sesion(db)`
 
-Pide email y contrasena por consola, valida que el email tenga formato correcto y autentica contra Firebase Authentication.
+Pide email y contraseña por consola, valida que el email tenga formato correcto y autentica contra Firebase Authentication.
 
 Si el login es correcto, devuelve el `uid` del usuario para cargar su perfil desde Firestore.
 
@@ -138,7 +138,7 @@ Coordina todo el flujo principal del programa:
 ## Validaciones importantes
 
 - En consola, el login exige un email valido.
-- La contrasena de registro debe tener al menos 6 caracteres.
+- La contraseña de registro debe tener al menos 6 caracteres.
 
 No se eligieron validaciones mas complejas porque el objetivo de esta app de consola es ser facil de seguir. Las reglas puestas son las minimas necesarias para encajar con Firebase Authentication y evitar errores frecuentes.
 
@@ -148,7 +148,7 @@ No se eligieron validaciones mas complejas porque el objetivo de esta app de con
 - Se usa Firebase Authentication para login y registro porque es mas seguro que guardar passwords en Firestore.
 - Se usa Firestore solo para datos de negocio porque saldo, cartera e historial no forman parte de la identidad.
 - Se sigue leyendo el mercado desde Firestore y no desde Finnhub en tiempo real para desacoplar la experiencia del usuario del proceso de sincronizacion.
-- Se ha anadido `Cerrar sesion` para poder cambiar de usuario sin reiniciar el programa completo.
+- Se ha añadido `Cerrar sesion` para poder cambiar de usuario sin reiniciar el programa completo.
 
 ## Error importante resuelto durante la migracion
 

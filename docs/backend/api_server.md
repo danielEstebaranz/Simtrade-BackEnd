@@ -114,7 +114,7 @@ El frontend lo usa para la pestaña `Historial`, donde se muestran mensajes como
 ```text
 Has comprado 0,15 acciones de AAPL a 300,15 $ por 45,02 $.
 Has vendido 0,03 acciones de AAPL a 301,10 $ por 9,03 $.
-Has anadido 250 $ al saldo.
+Has añadido 250 $ al saldo.
 Has invertido 1000 $ en un bono de AMZN.
 Ha finalizado tu bono de AMZN y has recibido 1020 $.
 ```
@@ -179,7 +179,7 @@ El endpoint devuelve tambien `user` actualizado para que el frontend pueda sincr
 
 ### `POST /users/me/funds`
 
-Anade fondos al saldo disponible del usuario autenticado.
+Añade fondos al saldo disponible del usuario autenticado.
 
 Requiere:
 
@@ -210,7 +210,7 @@ Respuesta orientativa:
 
 ```json
 {
-  "message": "Fondos anadidos correctamente.",
+  "message": "Fondos añadidos correctamente.",
   "operation": {
     "amount": 250,
     "balance": 1250
@@ -350,7 +350,7 @@ Recibe:
 }
 ```
 
-El backend exige token valido, palabra exacta `REINICIAR` y contrasena correcta antes de:
+El backend exige token valido, palabra exacta `REINICIAR` y contraseña correcta antes de:
 
 - dejar el saldo en `1000`
 - vaciar la cartera
@@ -358,7 +358,7 @@ El backend exige token valido, palabra exacta `REINICIAR` y contrasena correcta 
 
 ### `POST /users/me/delete`
 
-Borra la cuenta verificando antes la contrasena actual. Se usa desde el frontend porque permite enviar un body claro con la password:
+Borra la cuenta verificando antes la contraseña actual. Se usa desde el frontend porque permite enviar un body claro con la password:
 
 ```json
 {
@@ -368,7 +368,7 @@ Borra la cuenta verificando antes la contrasena actual. Se usa desde el frontend
 
 ### `DELETE /users/me`
 
-Borra la cuenta del usuario autenticado. Mantiene compatibilidad REST con metodo `DELETE`, pero tambien espera la contrasena actual en el body.
+Borra la cuenta del usuario autenticado. Mantiene compatibilidad REST con metodo `DELETE`, pero tambien espera la contraseña actual en el body.
 
 Requiere:
 
@@ -387,7 +387,7 @@ Recibe:
 Funcionamiento:
 
 1. Valida token de Firebase.
-2. Verifica la contrasena contra Firebase Authentication.
+2. Verifica la contraseña contra Firebase Authentication.
 3. Borra el usuario en Firebase Authentication.
 4. Borra el perfil `usuarios/{uid}` en Firestore.
 5. Borra las transacciones y bonos asociados al usuario.
@@ -622,7 +622,7 @@ Se guarda en Firestore dentro del perfil del usuario como `settings.theme`.
 
 ### `AddFundsRequest`
 
-Modelo Pydantic para anadir fondos. Usa:
+Modelo Pydantic para añadir fondos. Usa:
 
 - `amount`
 - `cantidad`
@@ -630,7 +630,7 @@ Modelo Pydantic para anadir fondos. Usa:
 
 El backend redondea a dos decimales, acepta numeros como texto y registra el ingreso como `DEPOSITO` para que el saldo sea auditable.
 
-El frontend consume este endpoint desde `ConfiguracionSection`, no desde mercado, porque anadir saldo es una operacion de cuenta.
+El frontend consume este endpoint desde `ConfiguracionSection`, no desde mercado, porque añadir saldo es una operacion de cuenta.
 
 ### `BondInvestmentRequest`
 
@@ -645,7 +645,7 @@ El frontend puede mandar `amount` como numero o texto; el backend lo normaliza c
 
 ## Como funciona a nivel de seguridad
 
-- El registro y el login reales ya no usan la coleccion `usuarios` para validar contrasenas.
+- El registro y el login reales ya no usan la coleccion `usuarios` para validar contraseñas.
 - La contraseña vive en Firebase Authentication.
 - Firestore solo guarda el perfil y los datos de negocio.
 - Las rutas protegidas usan `ID tokens` verificados por backend.

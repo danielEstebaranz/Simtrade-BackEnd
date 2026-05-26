@@ -221,7 +221,7 @@ def firebase_sign_in(email, password):
 
     errores = {
         'EMAIL_NOT_FOUND': 'No existe una cuenta con ese email.',
-        'INVALID_PASSWORD': 'La contrasena no es correcta.',
+        'INVALID_PASSWORD': 'La contraseña no es correcta.',
         'USER_DISABLED': 'La cuenta esta deshabilitada.',
         'INVALID_LOGIN_CREDENTIALS': 'Las credenciales no son correctas.',
     }
@@ -301,7 +301,7 @@ def add_my_funds(payload: AddFundsRequest, authorization: str | None = Header(de
     balance = db.anadir_fondos(user_id, amount)
 
     return {
-        'message': 'Fondos anadidos correctamente.',
+        'message': 'Fondos añadidos correctamente.',
         'operation': {
             'amount': amount,
             'balance': balance,
@@ -338,12 +338,12 @@ def verify_account_password(user_id, password, action='continuar'):
         raise HTTPException(status_code=400, detail='No se encontro un email valido para verificar la cuenta.')
 
     if not clean_password:
-        raise HTTPException(status_code=400, detail=f'La contrasena es obligatoria para {action}.')
+        raise HTTPException(status_code=400, detail=f'La contraseña es obligatoria para {action}.')
 
     firebase_session = firebase_sign_in(email, clean_password)
 
     if firebase_session.get('localId') != user_id:
-        raise HTTPException(status_code=401, detail='La contrasena no corresponde a esta cuenta.')
+        raise HTTPException(status_code=401, detail='La contraseña no corresponde a esta cuenta.')
 
 
 def verify_delete_password(user_id, password):
@@ -770,7 +770,7 @@ def login_help(payload: AuthRequest):
     password = payload.password.strip()
 
     if not identificador or not password:
-        raise HTTPException(status_code=400, detail='Usuario/email y contrasena son obligatorios.')
+        raise HTTPException(status_code=400, detail='Usuario/email y contraseña son obligatorios.')
 
     email = resolve_email(payload.email, identificador)
     if not email:
@@ -797,7 +797,7 @@ def register(payload: RegisterRequest):
     if not username or not password:
         raise HTTPException(
             status_code=400,
-            detail='Usuario y contrasena son obligatorios.',
+            detail='Usuario y contraseña son obligatorios.',
         )
 
     if not email:
