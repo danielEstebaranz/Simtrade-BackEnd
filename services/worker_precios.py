@@ -71,7 +71,7 @@ def ejecutar_worker():
     INTERVALO = 60 # 1 minuto
 
     # Solo imprimimos esto al arrancar
-    print(f"⚙️ Worker iniciado: Actualizando {len(activos)} activos cada minuto...")
+    print(f" Worker iniciado: Actualizando {len(activos)} activos cada minuto...")
 
     try:
         while True:
@@ -85,7 +85,7 @@ def ejecutar_worker():
                 print(f"Dividendos reinvertidos automaticamente: {reinversiones}")
             time.sleep(INTERVALO)
     except KeyboardInterrupt:
-        print("\n🛑 Worker detenido.")
+        print("\n Worker detenido.")
 
 if __name__ == "__main__":
     ejecutar_worker()
