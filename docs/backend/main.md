@@ -1,6 +1,6 @@
 # main
 
-Archivo fuente: [main.py](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/main.py)
+Archivo fuente: [main.py](C:/Users/raulm/Documents/GitHub/Simtrade-BackEnd/main.py)
 
 ## Proposito
 
@@ -12,6 +12,7 @@ Este script conecta la interfaz de consola con dos capas distintas:
 
 - Firebase Authentication para identidad y validacion de credenciales.
 - Firestore, a traves de `DbHandler`, para perfil, saldo, cartera e historial.
+- `ApiHandler`, para obtener precio actual desde tendencias reales de mercado.
 
 Se ha separado asi porque autenticar y guardar datos de negocio son problemas distintos. Firebase resuelve mejor la seguridad del login y Firestore sigue siendo el lugar natural para guardar la operativa del simulador.
 
@@ -23,7 +24,8 @@ Se ha separado asi porque autenticar y guardar datos de negocio son problemas di
   - `firebase-admin`
   - `requests`
 - Clase interna:
-  - [DbHandler](C:/Users/monsu/OneDrive/Documentos/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md)
+  - [DbHandler](C:/Users/raulm/Documents/GitHub/Simtrade-BackEnd/docs/backend/DbHandler.md)
+  - [ApiHandler](C:/Users/raulm/Documents/GitHub/Simtrade-BackEnd/docs/backend/ApiHandler.md)
 
 ## Variables de entorno necesarias
 
@@ -97,10 +99,34 @@ Muestra el menu principal de la aplicacion autenticada con el saldo actual del u
 Las opciones actuales son:
 
 - ver mercado e invertir
-- ver mi cartera
-- consultar transacciones
+- ver mi cartera y vender
+- consultar historial
 - cerrar sesion
 - salir
+
+### `obtener_precio_actual(market_api, ticker)`
+
+Obtiene el ultimo precio disponible usando `ApiHandler.obtener_tendencia(ticker, "1d")`.
+
+Sustituye la lectura antigua directa de la coleccion `mercado`, que dependia de que el worker hubiera escrito previamente precios en Firestore.
+
+### `mostrar_mercado(db, market_api, user_id)`
+
+Muestra los activos definidos en `services/market_assets.py`, obtiene precio real y permite comprar introduciendo dinero a invertir.
+
+La consola ya no mantiene una lista propia hardcodeada de tickers.
+
+### `mostrar_cartera(db, market_api, user_id)`
+
+Muestra posiciones actuales y permite vender 25 %, 50 %, 100 % o una cantidad manual.
+
+El precio se consulta con `ApiHandler`, igual que en el flujo web.
+
+### `mostrar_historial(db, user_id)`
+
+Consulta `DbHandler.obtener_historial(user_id)` y muestra cada movimiento como diccionario.
+
+Se corrigio el desfase antiguo donde `main.py` intentaba llamar a `doc.to_dict()` aunque `obtener_historial` ya devuelve diccionarios.
 
 ### `app_usuario()`
 
@@ -127,11 +153,9 @@ Coordina todo el flujo principal del programa:
 ## Datos usados en Firestore
 
 - Coleccion `usuarios`:
-  - guarda `username`, `email`, `saldo`, `cartera`, `fecha_creacion` y `auth_provider`
+  - guarda `username`, `email`, `saldo`, `cartera`, `settings`, `fecha_creacion` y `auth_provider`
   - el documento se identifica por `uid`
   - no guarda `password`
-- Coleccion `mercado`:
-  - lee `precio_actual` de los activos
 - Coleccion `transacciones`:
   - consulta y escribe el historial del usuario autenticado
 
@@ -147,8 +171,19 @@ No se eligieron validaciones mas complejas porque el objetivo de esta app de con
 - Se mantiene una aplicacion de consola porque permite probar todo el backend aunque el frontend todavia no tenga todas las pantallas terminadas.
 - Se usa Firebase Authentication para login y registro porque es mas seguro que guardar passwords en Firestore.
 - Se usa Firestore solo para datos de negocio porque saldo, cartera e historial no forman parte de la identidad.
-- Se sigue leyendo el mercado desde Firestore y no desde Finnhub en tiempo real para desacoplar la experiencia del usuario del proceso de sincronizacion.
-- Se ha añadido `Cerrar sesion` para poder cambiar de usuario sin reiniciar el programa completo.
+- Se usa `ApiHandler` para precios de mercado y asi la consola no depende de una lista hardcodeada ni de leer directamente documentos de `mercado`.
+- Se reutiliza `DbHandler` para compras, ventas e historial, igual que la API.
+- Se conserva `Cerrar sesion` para poder cambiar de usuario sin reiniciar el programa completo.
+
+## Limpieza de partes obsoletas
+
+Se han retirado o sustituido estas piezas antiguas sin anadir funcionalidades nuevas a la consola:
+
+- lista local `mercado_tickers`, reemplazada por `MARKET_ASSETS`
+- lectura directa de `db.db.collection("mercado")` desde la consola
+- historial con `doc.to_dict()`, porque `obtener_historial` ya devuelve diccionarios
+
+La consola mantiene sus funciones originales: autenticacion, compra, venta, historial, cierre de sesion y salida.
 
 ## Error importante resuelto durante la migracion
 
