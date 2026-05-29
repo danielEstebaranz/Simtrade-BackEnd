@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import auth as firebase_auth
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import requests
 import uvicorn
 
@@ -46,13 +46,13 @@ market_api = ApiHandler(os.getenv('FINNHUB_API_KEY'))
 class AuthRequest(BaseModel):
     username: str | None = None
     email: str | None = None
-    password: str
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class RegisterRequest(BaseModel):
     email: str | None = None
     username: str
-    password: str
+    password: str = Field(..., min_length=6, max_length=128)
 
 
 class BuyRequest(BaseModel):
@@ -82,11 +82,11 @@ class BondInvestmentRequest(BaseModel):
 
 class ResetPortfolioRequest(BaseModel):
     confirmation: str
-    password: str
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class DeleteAccountRequest(BaseModel):
-    password: str
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 def resolve_email(email, username):

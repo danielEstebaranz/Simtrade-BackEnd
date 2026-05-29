@@ -506,19 +506,22 @@ Para graficas, si no hay datos reales se devuelve error. No se inventan datos en
 
 ### Seguridad de autenticacion
 
-No hay JWT, cookies seguras ni expiracion de sesion.
+La autenticacion se delega en Firebase Authentication. El backend recibe `idToken` en rutas protegidas y lo verifica antes de acceder a datos privados.
 
-Para produccion se deberia implementar autenticacion real.
+Para produccion convendria reforzar rate limiting, monitorizacion de intentos fallidos y politicas avanzadas de sesion.
 
 ### Hash de contraseña
 
-Se usa SHA-256 simple. Es mejor que texto plano, pero no es lo ideal.
+El backend ya no guarda ni compara contraseñas en Firestore, ni en texto plano ni con hash local.
 
-Mejora recomendada:
+La contraseña se valida contra Firebase Authentication. Los metodos antiguos de hash local se retiraron de `DbHandler`.
+
+Mejora recomendada para produccion:
 
 ```text
-bcrypt
-argon2
+rate limiting
+politicas de contrasena mas estrictas
+alertas por intentos repetidos
 ```
 
 ### Variables sensibles

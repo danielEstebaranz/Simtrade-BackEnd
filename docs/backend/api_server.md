@@ -649,6 +649,8 @@ El frontend puede mandar `amount` como numero o texto; el backend lo normaliza c
 - La contraseña vive en Firebase Authentication.
 - Firestore solo guarda el perfil y los datos de negocio.
 - Las rutas protegidas usan `ID tokens` verificados por backend.
+- Las contraseñas recibidas por la API tienen limite de longitud: login, borrado y reinicio aceptan hasta 128 caracteres; registro exige entre 6 y 128 caracteres.
+- El backend no usa SQL ni ejecuta el contenido de la contraseña como comando.
 
 ## Por que esta hecho asi
 
