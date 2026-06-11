@@ -48,7 +48,7 @@ Se usa porque el backend necesita recibir datos estructurados desde el frontend.
 
 ### Por que no otro metodo
 
-No se usan parametros sueltos en la URL para usuario y contrasena porque los datos de acceso deben viajar en el cuerpo de la peticion y no en la direccion.
+No se usan parametros sueltos en la URL para usuario y contraseña porque los datos de acceso deben viajar en el cuerpo de la peticion y no en la direccion.
 
 ## AuthRequest
 
@@ -208,15 +208,15 @@ No se guarda solo el saldo final porque eso haria imposible explicar o auditar c
 
 ## SHA-256
 
-SHA-256 es una funcion hash que transforma una contrasena en una cadena irreconocible a simple vista.
+SHA-256 es una funcion hash que transforma una contraseña en una cadena irreconocible a simple vista.
 
 ### Por que se usa
 
-Se usa para no guardar la contrasena en texto plano y mantener una mejora de seguridad sencilla.
+Se usa para no guardar la contraseña en texto plano y mantener una mejora de seguridad sencilla.
 
 ### Por que no otro metodo
 
-No se guarda la contrasena tal cual porque seria inseguro. Tampoco se ha usado `bcrypt` de momento porque se busco una solucion mas simple y facil de entender para este proyecto academico.
+No se guarda la contraseña tal cual porque seria inseguro. Tampoco se ha usado `bcrypt` de momento porque se busco una solucion mas simple y facil de entender para este proyecto academico.
 
 ## User ID
 

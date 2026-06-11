@@ -1,11 +1,12 @@
 import os
 import math
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin import auth as firebase_auth
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import requests
 import uvicorn
 
@@ -13,7 +14,16 @@ from services.Api_Handler import ApiHandler
 from services.db_handler import DbHandler
 from services.market_assets import MARKET_ASSETS
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / '.env')
+
+
+def backend_path(env_value):
+    if not env_value:
+        return env_value
+
+    path = Path(env_value)
+    return str(path if path.is_absolute() else BASE_DIR / path)
 
 HOST = os.getenv('SIMTRADE_API_HOST', '127.0.0.1')
 PORT = int(os.getenv('SIMTRADE_API_PORT', '8000'))
@@ -23,6 +33,8 @@ MAX_FUNDS_DEPOSIT = 100000.0
 ALLOWED_ORIGINS = [
     'http://127.0.0.1:4200',
     'http://localhost:4200',
+    'https://simtrade-front-end.vercel.app',
+    'https://simtrade-front-21di3xbnp-simtrade.vercel.app',
 ]
 
 app = FastAPI(
@@ -39,20 +51,20 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-db = DbHandler(os.getenv('FIREBASE_JSON_PATH'))
+db = DbHandler(backend_path(os.getenv('FIREBASE_JSON_PATH')))
 market_api = ApiHandler(os.getenv('FINNHUB_API_KEY'))
 
 
 class AuthRequest(BaseModel):
     username: str | None = None
     email: str | None = None
-    password: str
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class RegisterRequest(BaseModel):
     email: str | None = None
     username: str
-    password: str
+    password: str = Field(..., min_length=6, max_length=128)
 
 
 class BuyRequest(BaseModel):
@@ -70,16 +82,23 @@ class SettingsRequest(BaseModel):
 
 
 class AddFundsRequest(BaseModel):
-    amount: float
+    amount: float | str | None = None
+    cantidad: float | str | None = None
+    value: float | str | None = None
+
+
+class BondInvestmentRequest(BaseModel):
+    ticker: str
+    amount: float | str
 
 
 class ResetPortfolioRequest(BaseModel):
     confirmation: str
-    password: str
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class DeleteAccountRequest(BaseModel):
-    password: str
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 def resolve_email(email, username):
@@ -150,10 +169,15 @@ def normalize_theme(theme):
 
 
 def normalize_funds_amount(amount):
-    if not math.isfinite(amount):
+    try:
+        numeric_amount = float(amount)
+    except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail='La cantidad debe ser un numero valido.')
 
-    normalized_amount = round(float(amount), 2)
+    if not math.isfinite(numeric_amount):
+        raise HTTPException(status_code=400, detail='La cantidad debe ser un numero valido.')
+
+    normalized_amount = round(numeric_amount, 2)
 
     if normalized_amount <= 0:
         raise HTTPException(status_code=400, detail='La cantidad debe ser mayor que 0.')
@@ -165,6 +189,21 @@ def normalize_funds_amount(amount):
         )
 
     return normalized_amount
+
+
+def resolve_payload_amount(payload):
+    amount = payload.amount
+
+    if amount is None:
+        amount = payload.cantidad
+
+    if amount is None:
+        amount = payload.value
+
+    if amount is None:
+        raise HTTPException(status_code=400, detail='La cantidad es obligatoria.')
+
+    return normalize_funds_amount(amount)
 
 
 def firebase_sign_in(email, password):
@@ -194,7 +233,7 @@ def firebase_sign_in(email, password):
 
     errores = {
         'EMAIL_NOT_FOUND': 'No existe una cuenta con ese email.',
-        'INVALID_PASSWORD': 'La contrasena no es correcta.',
+        'INVALID_PASSWORD': 'La contraseña no es correcta.',
         'USER_DISABLED': 'La cuenta esta deshabilitada.',
         'INVALID_LOGIN_CREDENTIALS': 'Las credenciales no son correctas.',
     }
@@ -233,7 +272,11 @@ def get_my_portfolio(authorization: str | None = Header(default=None)):
 @app.get('/users/me/history')
 def get_my_history(authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
-    transacciones = db.obtener_historial(user_id)
+    transacciones = [
+        transaccion
+        for transaccion in db.obtener_historial(user_id)
+        if str(transaccion.get('tipo', '')).upper() != 'DIVIDENDO_REINVERTIDO'
+    ]
 
     return {
         'items': [public_transaction(transaccion) for transaccion in transacciones],
@@ -266,11 +309,11 @@ def update_my_settings(payload: SettingsRequest, authorization: str | None = Hea
 @app.post('/users/me/funds')
 def add_my_funds(payload: AddFundsRequest, authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
-    amount = normalize_funds_amount(payload.amount)
+    amount = resolve_payload_amount(payload)
     balance = db.anadir_fondos(user_id, amount)
 
     return {
-        'message': 'Fondos anadidos correctamente.',
+        'message': 'Fondos añadidos correctamente.',
         'operation': {
             'amount': amount,
             'balance': balance,
@@ -282,7 +325,7 @@ def add_my_funds(payload: AddFundsRequest, authorization: str | None = Header(de
 @app.post('/users/me/funds/withdraw')
 def withdraw_my_funds(payload: AddFundsRequest, authorization: str | None = Header(default=None)):
     user_id = verify_current_user(authorization)
-    amount = normalize_funds_amount(payload.amount)
+    amount = resolve_payload_amount(payload)
     success, balance = db.retirar_fondos(user_id, amount)
 
     if not success:
@@ -307,12 +350,12 @@ def verify_account_password(user_id, password, action='continuar'):
         raise HTTPException(status_code=400, detail='No se encontro un email valido para verificar la cuenta.')
 
     if not clean_password:
-        raise HTTPException(status_code=400, detail=f'La contrasena es obligatoria para {action}.')
+        raise HTTPException(status_code=400, detail=f'La contraseña es obligatoria para {action}.')
 
     firebase_session = firebase_sign_in(email, clean_password)
 
     if firebase_session.get('localId') != user_id:
-        raise HTTPException(status_code=401, detail='La contrasena no corresponde a esta cuenta.')
+        raise HTTPException(status_code=401, detail='La contraseña no corresponde a esta cuenta.')
 
 
 def verify_delete_password(user_id, password):
@@ -333,6 +376,67 @@ def delete_verified_account(user_id):
     return {
         'message': 'Cuenta borrada correctamente.',
         **delete_result,
+    }
+
+
+@app.get('/bonds/offers')
+def get_bond_offers():
+    return {
+        'items': db.obtener_ofertas_bonos(),
+    }
+
+
+@app.get('/users/me/bonds')
+def get_my_bonds(authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    bonds = db.obtener_bonos_usuario(user_id, liquidar_vencidos=True)
+
+    return {
+        'items': bonds,
+        'active': [bond for bond in bonds if bond.get('status') == 'active'],
+        'settled': [bond for bond in bonds if bond.get('status') == 'settled'],
+        'user': public_user(user_id),
+    }
+
+
+@app.post('/users/me/bonds')
+def create_my_bond(payload: BondInvestmentRequest, authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    ticker = payload.ticker.strip().upper()
+    amount = normalize_funds_amount(payload.amount)
+
+    if not ticker:
+        raise HTTPException(status_code=400, detail='El ticker del bono es obligatorio.')
+
+    success, result, bond = db.crear_bono(user_id, ticker, amount)
+
+    if not success and result == 'BOND_NOT_FOUND':
+        raise HTTPException(status_code=404, detail='No existe una oferta de bono para ese activo.')
+
+    if not success and result == 'INSUFFICIENT_FUNDS':
+        raise HTTPException(status_code=400, detail='Saldo insuficiente para invertir en ese bono.')
+
+    return {
+        'message': 'Bono contratado correctamente.',
+        'bond': bond,
+        'operation': {
+            'amount': amount,
+            'balance': result,
+        },
+        'user': public_user(user_id),
+    }
+
+
+@app.post('/users/me/bonds/settle')
+def settle_my_bonds(authorization: str | None = Header(default=None)):
+    user_id = verify_current_user(authorization)
+    settled = db.liquidar_bonos_vencidos(user_id)
+
+    return {
+        'message': 'Bonos vencidos liquidados correctamente.',
+        'items': settled,
+        'settledCount': len(settled),
+        'user': public_user(user_id),
     }
 
 
@@ -601,7 +705,7 @@ def calcular_costes_abiertos(transacciones):
         if not ticker or cantidad <= 0:
             continue
 
-        if tipo == 'COMPRA':
+        if tipo in {'COMPRA', 'DIVIDENDO_REINVERTIDO'}:
             cantidades[ticker] = cantidades.get(ticker, 0.0) + cantidad
             costes[ticker] = costes.get(ticker, 0.0) + cantidad * precio
             continue
@@ -644,6 +748,14 @@ def calcular_fondos_anadidos(transacciones):
             total -= float(transaccion.get('total_dinero', 0) or 0)
             continue
 
+        if tipo == 'BONO_INVERSION':
+            total -= float(transaccion.get('total_dinero', 0) or 0)
+            continue
+
+        if tipo == 'BONO_CIERRE':
+            total += float(transaccion.get('total_dinero', 0) or 0)
+            continue
+
         if tipo == 'REINICIO':
             total = 0.0
 
@@ -670,7 +782,7 @@ def login_help(payload: AuthRequest):
     password = payload.password.strip()
 
     if not identificador or not password:
-        raise HTTPException(status_code=400, detail='Usuario/email y contrasena son obligatorios.')
+        raise HTTPException(status_code=400, detail='Usuario/email y contraseña son obligatorios.')
 
     email = resolve_email(payload.email, identificador)
     if not email:
@@ -697,7 +809,7 @@ def register(payload: RegisterRequest):
     if not username or not password:
         raise HTTPException(
             status_code=400,
-            detail='Usuario y contrasena son obligatorios.',
+            detail='Usuario y contraseña son obligatorios.',
         )
 
     if not email:

@@ -8,7 +8,7 @@ Archivo fuente: [services/db_handler.py](C:/Users/monsu/OneDrive/Documentos/GitH
 
 ## Que guarda ahora mismo
 
-La coleccion `usuarios` ya no se usa para autenticar contrasenas. Su funcion actual es guardar:
+La coleccion `usuarios` ya no se usa para autenticar contraseñas. Su funcion actual es guardar:
 
 - `username`
 - `email`
@@ -17,6 +17,21 @@ La coleccion `usuarios` ya no se usa para autenticar contrasenas. Su funcion act
 - `settings`
 - `fecha_creacion`
 - `auth_provider`
+
+La coleccion `bonos` guarda las inversiones temporales del usuario:
+
+- `usuario`
+- `ticker`
+- `amount`
+- `return_percent`
+- `profit`
+- `payout`
+- `duration_seconds`
+- `status`
+- `started_at`
+- `maturity_at`
+- `settled_at`
+- `balance_after_settlement`
 
 Ejemplo:
 
@@ -78,13 +93,54 @@ Actualiza `settings.theme` con `dark` o `light`.
 
 Suma la cantidad al `saldo`, redondea a dos decimales y registra un movimiento `DEPOSITO` en `transacciones`.
 
-El deposito se registra con `ticker = "CASH"`, `cantidad = 1`, `precio_unidad = cantidad` y `total_dinero = cantidad`. Asi el historial puede mostrar el ingreso y el calculo de ganancias puede distinguir dinero anadido frente a dinero generado por ventas.
+El deposito se registra con `ticker = "CASH"`, `cantidad = 1`, `precio_unidad = cantidad` y `total_dinero = cantidad`. Asi el historial puede mostrar el ingreso y el calculo de ganancias puede distinguir dinero añadido frente a dinero generado por ventas.
 
 ### `eliminar_cuenta(user_id)`
 
-Borra el documento del usuario en `usuarios/{uid}` y elimina sus documentos de `transacciones`.
+Borra el documento del usuario en `usuarios/{uid}` y elimina sus documentos de `transacciones` y `bonos`.
 
 El borrado de Firebase Authentication se hace en `api_server.py`; `DbHandler` se ocupa de limpiar los datos de negocio en Firestore.
+
+### `obtener_ofertas_bonos()`
+
+Devuelve las ofertas de bonos disponibles. Ahora mismo todos vencen a 60 segundos. La oferta de Amazon (`AMZN`) usa una rentabilidad del 2%.
+
+### `crear_bono(user_id, ticker, cantidad)`
+
+Resta saldo al usuario, crea un documento activo en `bonos` y registra `BONO_INVERSION` en `transacciones`.
+
+Los bonos son productos independientes de la cartera de acciones. El usuario puede contratar un bono de `TSLA` aunque no tenga acciones de Tesla compradas, porque el bono no representa una posicion accionarial: representa una inversion temporal ofrecida por la plataforma con una rentabilidad fija simulada.
+
+Por eso `crear_bono(...)` valida contra `BOND_OFFERS`, no contra `usuario.cartera`.
+
+Cada bono guarda:
+
+```python
+{
+    "status": "active",
+    "amount": 1000,
+    "return_percent": 2.0,
+    "profit": 20,
+    "payout": 1020,
+    "duration_seconds": 60
+}
+```
+
+### `obtener_bonos_usuario(user_id, liquidar_vencidos=True)`
+
+Devuelve los bonos del usuario. Si `liquidar_vencidos` es `True`, antes liquida los bonos que ya hayan llegado a `maturity_at`.
+
+### `liquidar_bonos_vencidos(user_id)`
+
+Busca bonos activos vencidos, suma `payout` al saldo, cambia el estado a `settled`, guarda `balance_after_settlement` y registra `BONO_CIERRE`.
+
+Para evitar indices compuestos innecesarios de Firestore, primero consulta por `usuario` y despues filtra `status == "active"` en Python.
+
+### `_public_bond(bond)`
+
+Transforma un documento de `bonos` en el formato publico de la API.
+
+`secondsRemaining` se calcula con redondeo hacia arriba (`ceil`) para evitar que la UI marque `0` antes de que `maturity_at` haya llegado realmente.
 
 ### `actualizar_precio(datos)`
 
@@ -99,6 +155,22 @@ En la web, este metodo se llama desde `POST /users/me/portfolio/buy`. El fronten
 ### `realizar_venta(...)`
 
 Actualiza saldo, cartera y registra la venta en `transacciones`.
+
+### `reinvertir_dividendo(user_id, ticker, importe_dividendo, precio_unidad)`
+
+Convierte un dividendo simulado en mas unidades del mismo activo.
+
+No aumenta el saldo disponible del usuario. El importe se transforma directamente en unidades:
+
+```text
+unidades nuevas = importe_dividendo / precio_unidad
+```
+
+Despues registra una transaccion interna `DIVIDENDO_REINVERTIDO`. Esa transaccion no se muestra en el historial del frontend, pero si se usa para calcular correctamente el dinero invertido.
+
+### `obtener_usuarios_con_cartera()`
+
+Devuelve los usuarios que tienen posiciones abiertas. El worker la usa para saber sobre que carteras debe aplicar la reinversion automatica.
 
 ### `obtener_historial(user_id)`
 
@@ -118,8 +190,11 @@ Primero consulta por usuario y despues ordena en Python por `fecha`. Se hizo asi
 - El documento del usuario usa el `uid` de Firebase Authentication, que es estable y seguro.
 - La cartera se transforma en lista dentro del backend para no obligar al frontend a reinterpretar estructuras de Firestore.
 - Las transacciones se usan para calcular el coste invertido real antes de recurrir a estimaciones.
+- Las reinversiones se guardan como transacciones internas para que el coste invertido no quede descuadrado.
 - Los depositos se guardan como transacciones para que el saldo no cambie sin rastro.
-- Los depositos tambien evitan que el fallback de ganancias confunda fondos anadidos con dinero no invertido.
+- Los depositos tambien evitan que el fallback de ganancias confunda fondos añadidos con dinero no invertido.
+- Los bonos viven en una coleccion separada porque necesitan estado y fecha de vencimiento.
+- Las operaciones de bonos tambien se registran en `transacciones` para que el historial del usuario tenga rastro financiero completo.
 - Se mantiene `DbHandler` como punto unico de acceso para que la logica de base de datos no se disperse en toda la aplicacion.
 
 ## Seguridad

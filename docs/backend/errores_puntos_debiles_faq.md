@@ -126,7 +126,7 @@ FIREBASE_WEB_API_KEY=...
 
 #### Solucion
 
-Se debe anadir en el `.env` del backend y reiniciar el servidor.
+Se debe añadir en el `.env` del backend y reiniciar el servidor.
 
 La clave se obtiene en Firebase Console:
 
@@ -327,7 +327,9 @@ Asi el registro y el login dejan la misma sesion preparada para comprar, vender 
 La pantalla `/panel/configuracion` del frontend ya existia, pero para que funcionara necesitaba contratos HTTP claros para:
 
 - leer y cambiar tema
-- anadir fondos
+- añadir fondos
+- retirar fondos
+- reiniciar cartera
 - borrar cuenta
 
 #### Solucion
@@ -338,22 +340,90 @@ El backend expone:
 GET /users/me/settings
 PATCH /users/me/settings
 POST /users/me/funds
-DELETE /users/me
+POST /users/me/funds/withdraw
+POST /users/me/portfolio/reset
+POST /users/me/delete
 ```
 
-Todos usan `Authorization: Bearer <idToken>` y devuelven JSON pensado para que Angular actualice `AuthService`.
+Todos usan `Authorization: Bearer <idToken>` y devuelven JSON pensado para que Angular actualice `AuthService`. Las operaciones destructivas piden tambien la contraseña actual.
 
 ### Depositos confundidos con compras en el historial
 
 #### Causa
 
-Al anadir fondos, `DbHandler` registra `DEPOSITO`. Si el frontend no lo distingue, puede tratarlo como una compra generica.
+Al añadir fondos, `DbHandler` registra `DEPOSITO`. Si el frontend no lo distingue, puede tratarlo como una compra generica.
 
 #### Solucion
 
 El backend mantiene `type: "deposito"` en la respuesta de historial y el frontend lo muestra como ingreso de saldo.
 
 Esto conserva trazabilidad del saldo y evita mezclar depositos con operaciones de mercado.
+
+### El importe manual de añadir fondos no se aplicaba
+
+#### Causa
+
+Los botones rapidos enviaban una cantidad numerica valida, pero el input manual podia llegar como texto o con un nombre de campo distinto segun el formulario.
+
+#### Solucion
+
+`AddFundsRequest` acepta:
+
+```text
+amount
+cantidad
+value
+```
+
+Y `normalize_funds_amount(...)` convierte el valor a `float` antes de validar `math.isfinite`.
+
+### El login cambiaba al modo oscuro
+
+#### Causa
+
+El tema global se aplica en `:root[data-theme='dark']`. Si una pantalla no fija su propia paleta, puede heredar variables oscuras.
+
+#### Solucion
+
+El frontend deja la pantalla de login en `color-scheme: light` y fondo claro fijo para que no cambie aunque el usuario tenga modo oscuro en el panel.
+
+### Los bonos no se liquidaban al llegar a 0
+
+#### Causa
+
+El frontend restaba segundos localmente. Podia mostrar `0` antes de que el backend considerase que `maturity_at` habia llegado. Entonces llamaba a liquidar demasiado pronto, no se liquidaba nada, y no volvia a intentarlo hasta que el usuario entraba otra vez en Bonos.
+
+#### Solucion
+
+- El backend calcula `secondsRemaining` con redondeo hacia arriba.
+- El frontend usa `maturityAt` como fuente real del contador.
+- Si detecta un bono activo vencido, llama a `POST /users/me/bonds/settle`.
+- `GET /users/me/bonds` tambien liquida vencidos al cargar o refrescar la pantalla.
+
+### Los bonos no aparecian en historial
+
+#### Causa
+
+El backend registraba transacciones tecnicas `BONO_INVERSION` y `BONO_CIERRE`, pero el frontend no tenia mensajes especificos para esos tipos.
+
+#### Solucion
+
+El frontend ahora muestra:
+
+```text
+Has invertido 1000 $ en un bono de AMZN.
+Ha finalizado tu bono de AMZN y has recibido 1020 $.
+```
+
+### La estetica de bonos activos quedaba desalineada
+
+#### Causa
+
+Se probo una cascada visual con desplazamiento lateral progresivo, pero al tener varios bonos hacia que la columna pareciera asimetrica.
+
+#### Solucion
+
+La lista de bonos activos se dejo como columna simetrica: todos alineados a la izquierda y con el mismo ancho.
 
 ## Librerias usadas y motivo
 
@@ -385,6 +455,28 @@ Se usa para obtener historicos reales de mercado. Es la libreria que alimenta la
 
 Se usa para llamar al endpoint oficial de Firebase Authentication `signInWithPassword` desde el backend. Esa llamada necesita `FIREBASE_WEB_API_KEY`.
 
+## Librerias usadas en frontend y motivo
+
+### Angular
+
+Framework principal del frontend. Se usa para rutas, componentes standalone, formularios reactivos y renderizado declarativo.
+
+### RxJS
+
+Se usa para manejar respuestas HTTP y suscripciones, junto con `takeUntilDestroyed` para limpiar suscripciones al destruir componentes.
+
+### Chart.js
+
+Se usa en las graficas de mercado y cartera.
+
+### Angular Router
+
+Controla rutas como `/login`, `/panel/cartera`, `/panel/mercado`, `/panel/bonos`, `/panel/historial`, `/panel/configuracion` y `/panel/ayuda`.
+
+### Angular HttpClient
+
+Se usa en servicios como `AuthService`, `MarketService`, `AccountService` y `ChatService` para consumir FastAPI y n8n.
+
 ## Metodologia seguida
 
 ### Separar consola y API
@@ -393,7 +485,7 @@ Se usa para llamar al endpoint oficial de Firebase Authentication `signInWithPas
 
 `api_server.py` es la capa que entiende HTTP.
 
-Asi no se rompe la consola mientras se anade frontend.
+Asi no se rompe la consola mientras se añade frontend.
 
 ### No duplicar Firestore
 
@@ -414,19 +506,22 @@ Para graficas, si no hay datos reales se devuelve error. No se inventan datos en
 
 ### Seguridad de autenticacion
 
-No hay JWT, cookies seguras ni expiracion de sesion.
+La autenticacion se delega en Firebase Authentication. El backend recibe `idToken` en rutas protegidas y lo verifica antes de acceder a datos privados.
 
-Para produccion se deberia implementar autenticacion real.
+Para produccion convendria reforzar rate limiting, monitorizacion de intentos fallidos y politicas avanzadas de sesion.
 
-### Hash de contrasena
+### Hash de contraseña
 
-Se usa SHA-256 simple. Es mejor que texto plano, pero no es lo ideal.
+El backend ya no guarda ni compara contraseñas en Firestore, ni en texto plano ni con hash local.
 
-Mejora recomendada:
+La contraseña se valida contra Firebase Authentication. Los metodos antiguos de hash local se retiraron de `DbHandler`.
+
+Mejora recomendada para produccion:
 
 ```text
-bcrypt
-argon2
+rate limiting
+politicas de contrasena mas estrictas
+alertas por intentos repetidos
 ```
 
 ### Variables sensibles
@@ -459,7 +554,7 @@ Esto es correcto para datos reales, pero a futuro se podria mostrar una confirma
 
 ### Borrado irreversible de cuenta
 
-`DELETE /users/me` borra el usuario de Firebase Authentication, el perfil de Firestore y las transacciones. En frontend se pide escribir `BORRAR`, pero a nivel de backend la proteccion real es exigir un `idToken` valido.
+`POST /users/me/delete` y `DELETE /users/me` borran el usuario de Firebase Authentication, el perfil de Firestore, las transacciones y los bonos. En frontend se pide escribir `BORRAR` y despues introducir la contraseña actual. A nivel de backend se exige `idToken` valido y password correcta.
 
 ### No hay tests automatizados
 
@@ -550,7 +645,7 @@ Para cambiar tema:
 curl.exe -s -i -X PATCH "http://127.0.0.1:8000/users/me/settings" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"theme\":\"dark\"}"
 ```
 
-### Como compruebo anadir fondos
+### Como compruebo añadir fondos
 
 ```powershell
 curl.exe -s -i -X POST "http://127.0.0.1:8000/users/me/funds" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"amount\":250}"
@@ -563,7 +658,7 @@ Debe devolver `operation.amount`, `operation.balance` y `user` actualizado.
 Usar solo con cuentas de prueba:
 
 ```powershell
-curl.exe -s -i -X DELETE "http://127.0.0.1:8000/users/me" -H "Authorization: Bearer <idToken>"
+curl.exe -s -i -X POST "http://127.0.0.1:8000/users/me/delete" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"password\":\"contrasena_actual\"}"
 ```
 
 Debe devolver:
@@ -571,8 +666,35 @@ Debe devolver:
 ```json
 {
   "message": "Cuenta borrada correctamente.",
-  "deleted_transactions": 0
+  "deleted_transactions": 0,
+  "deleted_bonds": 0
 }
+```
+
+### Como compruebo bonos
+
+Ofertas disponibles:
+
+```powershell
+curl.exe -s -i "http://127.0.0.1:8000/bonds/offers"
+```
+
+Crear un bono de Amazon:
+
+```powershell
+curl.exe -s -i -X POST "http://127.0.0.1:8000/users/me/bonds" -H "Authorization: Bearer <idToken>" -H "Content-Type: application/json" -d "{\"ticker\":\"AMZN\",\"amount\":1000}"
+```
+
+Consultar y liquidar vencidos automaticamente:
+
+```powershell
+curl.exe -s -i "http://127.0.0.1:8000/users/me/bonds" -H "Authorization: Bearer <idToken>"
+```
+
+Forzar liquidacion de bonos vencidos:
+
+```powershell
+curl.exe -s -i -X POST "http://127.0.0.1:8000/users/me/bonds/settle" -H "Authorization: Bearer <idToken>"
 ```
 
 ### Por que el frontend muestra `Valor actual`
