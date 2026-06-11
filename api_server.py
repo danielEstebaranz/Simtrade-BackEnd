@@ -34,6 +34,7 @@ ALLOWED_ORIGINS = [
     'http://127.0.0.1:4200',
     'http://localhost:4200',
     'https://simtrade-front-end.vercel.app',
+    'https://simtrade-front-21di3xbnp-simtrade.vercel.app',
 ]
 
 app = FastAPI(
