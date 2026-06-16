@@ -5,7 +5,7 @@ MARKET_ASSETS = [
     {'ticker': 'MSFT', 'name': 'Microsoft'},
     {'ticker': 'BINANCE:BTCUSDT', 'name': 'Bitcoin'},
     {'ticker': 'GOOGL', 'name': 'Alphabet'},
-    {'ticker': 'NVD', 'name': 'Nvidia'},
+    {'ticker': 'NVDA', 'name': 'Nvidia'},
 ]
 
 

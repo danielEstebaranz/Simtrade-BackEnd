@@ -512,6 +512,8 @@ class DbHandler:
             for doc in docs:
                 transaccion = doc.to_dict()
                 transaccion['id'] = doc.id
+                if str(transaccion.get('tipo', '')).upper() == 'DIVIDENDO_REINVERTIDO':
+                    continue
                 transacciones.append(transaccion)
 
             return sorted(
